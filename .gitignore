@@ -1,2 +1,5 @@
 *sage*
 .*.swp
+*.out
+*.aux
+*.log
