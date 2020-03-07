@@ -748,7 +748,7 @@ Both essentially are just syntactic constants.
     } { \Gamma \proves x : \tau }
 
     \inferrule*[right=Abs]{
-        \Gamma \proves \tau_1 : \ty
+        \Gamma \proves \bm{\Pi} x : \tau_1 . \tau_2 : \mathcal{S}
         \and
         \Gamma, x : \tau_1 \proves e : \tau_2
     } { \Gamma \proves \lambda x : \tau_1 . e : \bm{\Pi} x : \tau_1 . \tau_2 }
@@ -802,6 +802,8 @@ First let's define a pure type system---in fact, we already almost did this abov
 \reed{TODO}
 
 Note that this document roughly follows Benjamin Pierce's \emph{Types and Programming Languages} (as well as Pierce et al.'s \emph{Advanced Types and Programming Languages}) and Robert Harper's \emph{Practical Foundations for Programming Languages}.
+
+Also:
 \url{http://www4.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf}
 
 \end{document}
