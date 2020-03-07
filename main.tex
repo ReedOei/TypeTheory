@@ -1,0 +1,808 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{sagetex}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+\usepackage{listings}
+\usepackage{bbm}
+\usepackage{multicol}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+\usepackage{float}
+\usepackage{enumerate}
+\usepackage[margin=1.25in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{kpfonts}
+
+\input{LaTeX/macros.tex}
+\input{LaTeX/lemmas.tex}
+
+\lstset{
+  frame=none,
+  xleftmargin=2pt,
+  stepnumber=1,
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\ttfamily\tiny\color[gray]{0.3},
+  belowcaptionskip=\bigskipamount,
+  captionpos=b,
+  escapeinside={*'}{'*},
+  language=haskell,
+  tabsize=2,
+  emphstyle={\bf},
+  commentstyle=\it,
+  stringstyle=\mdseries\rmfamily,
+  showspaces=false,
+  keywordstyle=\bfseries\rmfamily,
+  columns=flexible,
+  basicstyle=\small\sffamily,
+  showstringspaces=false,
+  morecomment=[l]\%,
+}
+
+\newcommand{\reducesto}{\Downarrow}
+
+\begin{document}
+
+\section{Introduction}
+
+Why Type Theory?
+If you want to work with programming languages, you want to be sure that the languages you define are useful.
+The bare minimum for a language being useful is that it works in all the cases it should---what does that mean?
+
+It means that if I have a program that the compiler says is well-typed, then all the errors that happen should be my fault.
+We should never run into a case when the compiler says ``your program is right'' but then it says ``actually I couldn't figure out what to do here.''
+This would mean, that while we were writing the compiler, we forgot some cases; that's incredibly annoying for users, so to avoid this, we can prove that we didn't miss any cases.
+
+To prove that this won't happen, we need a mathematical representation of our language and it's type system.
+Then we can prove type safety: ``Well-typed programs don't get stuck.''
+
+The simplest language we can see these ideas in is the simply-typed $\lambda$-calculus.
+
+Note that, throughout this document, it is only allowed to have a single binding of any name in a context, so something like $x : \tau_1, x : \tau_2$ is \textbf{not} allowed, \textbf{even if $\tau_1 = \tau_2$}.
+This is simply to reduce the need to declare that there is no variable shadowing in any of the systems we discuss.
+
+\section{The Simply-Typed $\lambda$-Calculus}
+
+\subsection{Syntax}
+
+\begin{tabular}{l r l}
+    V & \bnfdef & Bool \bnfalt $x \bnfalt \lambda x : \tau . E$ \\
+
+    E & \bnfdef & $V \bnfalt E ~ E$ \\
+
+    $\tau$ & \bnfdef & bool \bnfalt $\tau \to \tau$ \\
+\end{tabular}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item
+\end{enumerate}
+
+\subsection{Dynamics}
+
+\begin{mathpar}
+    \inferrule*[right=E-App]{e_1 \to e_1'}{ e_1 e_2 \to e_1' e_2 }
+
+    \inferrule*[right=E-$\beta$-reduce]{ }{ (\lambda x : \tau . e_1) e_2 \to e_1[e_2/x] }
+\end{mathpar}
+
+\subsection{Statics}
+
+\paragraph{Type Contexts Syntax}~\\
+
+\begin{tabular}{l r l}
+    $\Gamma$ & \bnfdef & $\cdot \bnfalt \Gamma, x : \tau$ \\
+\end{tabular}
+
+\paragraph{Typing Rules}
+
+\begin{mathpar}
+    \inferrule*[right=Var]{ x : \tau \in \Gamma }{ \Gamma \proves x : \tau }
+
+    \inferrule*[right=B-True]{ }{ \Gamma \proves \text{true} : \text{bool} }
+
+    \inferrule*[right=B-False]{ }{ \Gamma \proves \text{false} : \text{bool} }
+
+    \inferrule*[right=Abs]{
+        \Gamma, x : \tau_1 \proves e : \tau_2
+    } { \Gamma \proves \lambda x : \tau . e : \tau_1 \to \tau_2 }
+
+    \inferrule*[right=App]{
+        \Gamma \proves e_1 : \tau_1 \to \tau_2
+        \and
+        \Gamma \proves e_2 : \tau_1
+    } { \Gamma \proves e_1 e_2 : \tau_2 }
+\end{mathpar}
+
+\subsection{Type Safety}
+
+We want to prove that our type system actually works---if a term is well-typed, we don't get stuck.
+Usually, we break up proofs of type safety into two parts: \textbf{Progess}, that a well-typed term is a value or can be evaluated one more step, and \textbf{Preservation}, that after taking a step, the resulting term is still well-typed.
+
+\begin{theorem}[Progress]
+    If $\cdot \proves e : \tau$, then either $e$ is a value or $e \to e'$ for some $e'$.
+\end{theorem}
+\begin{proof} by induction on the typing derivation of $\cdot \proves e : \tau$.
+
+    \paragraph{Case: \textsc{Var}} Contradiction, we assumed that $e$ is closed (but also $e$ is a value).
+
+    \paragraph{Case: \textsc{B-True}} Then $e$ is a value.
+    \paragraph{Case: \textsc{B-False}} Then $e$ is a value.
+
+    \paragraph{Case: \textsc{Abs}} Then $e = \lambda x : \tau. e_1$ and $e$ is a value.
+
+    \paragraph{Case: \textsc{App}}
+
+    Then $e = e_1 e_2$ and $\cdot \proves e_1 e_2 : \tau_2$ and $\cdot \proves e_1 : \tau_1 \to \tau_2$ and $\cdot \proves e_2 : \tau_1$ by inversion of the typing relation.
+
+    By induction, either $e_1$ is a value or $e_1 \to e_1'$.
+
+    If $e_1$ is a value, then it must be $\lambda x : \tau . b$ because it is a closed term and the only typing rule that applies is \textsc{Abs}.
+    Then $e_1 e_2 = (\lambda x : \tau . b) e_2 \to b[e_2/x]$.
+
+    Otherwise, $e_1 \to e_1'$, so $e_1 e_2 \to e_1' e_2$.
+\end{proof}
+
+Note that preservation doesn't always require $e$ and $e'$ have the \textbf{same} type, but in this case we can guarantee it.
+We'll need one tool to prove preservation:
+
+\begin{lemma}[Substitution Preservation]
+    If $\Gamma, x : \tau_1 \vdash e : \tau_2$ and $e' : \tau_1$, then $\Gamma \proves e[e'/x] : \tau_2$.
+\end{lemma}
+\begin{proof} by induction on the typing derivation.
+\end{proof}
+
+\begin{theorem}[Preservation]
+    If $\Gamma \proves e : \tau$, and $e \to e'$, then $\Gamma \proves e' : \tau$.
+\end{theorem}
+\begin{proof} by induction on the derivation of $\Gamma \proves e : \tau$.
+
+    \paragraph{Case: \textsc{Var}} Contradiction, $e$ is a value and so we don't have $e \to e'$ for any $e'$.
+
+    \paragraph{Case: \textsc{B-True}} Contradiction, $e$ is a value.
+    \paragraph{Case: \textsc{B-False}} Contradiction, $e$ is a value.
+
+    \paragraph{Case: \textsc{Abs}} Again, contradiction because $e = \lambda x : \tau. e_1$ is a value.
+
+    \paragraph{Case: \textsc{App}}
+
+    Then $e = e_1 e_2$ and $\Gamma \proves e_1 e_2 : \tau_2$ and $\Gamma \proves e_1 : \tau_1 \to \tau_2$ and $\Gamma \proves e_2 : \tau_1$ by inversion of the typing relation.
+    There are two subcases to consider, depending on how we derived $e \to e'$:
+
+    \begin{itemize}
+        \item[\textsc{E-App}] In this case, $e_1 \to e_1'$, and we already know that $\Gamma \proves e_1 : \tau_1 \to \tau_2$, so by the inductive hypothesis, we know $\Gamma \proves e_1' : \tau_1 \to t\tau_2$.
+            Then we can apply the \textsc{App} rule to get $\Gamma \proves e_1' e_2 : \tau_2$.
+
+        \item[\textsc{E-$\beta$-reduce}]
+
+            Then $e_1 = \lambda x : \tau_1. b$, and so we must have $\Gamma \proves \lambda x : \tau_1 . b : \tau_1 \to \tau_2$, which we must have obtained using \textsc{Abs}.
+            Therefore, by inversion we have $\Gamma, x : \tau_1 \proves b : \tau_2$.
+
+            Also, $e' = b[e_2/x]$ by use of \textsc{E-$\beta$-reduce}, so we wish to prove $\Gamma \proves b[e_2/x] : \tau_2$.
+            This follows from the substitution lemma.
+    \end{itemize}
+
+\end{proof}
+
+\section{Girard's System-$F$}
+
+The problem with the simply-typed $\lambda$-calculus is that we can't write lots of simple functions that we might want: for example, we can't even write an identity function!
+To allow this, we extend the $\lambda$-calculus with \emph{type variables}; but not that this is a pure extension of the $\lambda$-calculus---every term that was well-typed in the original $\lambda$-calculus is still well-typed.
+
+This is called \emph{parametric polymorphism}---our types with type variables can be parameterized over \textbf{any} type.
+Contrast this with \emph{ad-hoc polymorphism}, which only allows paramterizing over some types, or \emph{bounded polymorphism}, which allows paramterizing over any type satisfying a certain \emph{bound} (e.g., must be a collection of some kind).
+We will explore these type systems later (probably).
+
+\subsection{Syntax}
+
+\begin{tabular}{l r l}
+    V & \bnfdef & Bool \bnfalt $x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha . E $ \\
+
+    E & \bnfdef & $V \bnfalt E ~ E \bnfalt E ~ [\tau] $ \\
+
+    $\tau$ & \bnfdef & bool \bnfalt $\tau \to \tau \bnfalt \forall \alpha . \tau$ \\
+\end{tabular}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item $\Lambda \alpha . \lambda x : \alpha \to \alpha. x$
+    \item $(\Lambda \alpha . \lambda x : \alpha \to \alpha. x) ~ [\text{bool}] ~ \text{true}$
+\end{enumerate}
+
+\subsection{Dynamics}
+
+Note the evaluation rules are exactly the same, except we need two new rules to handle the new constructs we've added.
+
+\begin{mathpar}
+    \inferrule*[right=E-TypApp]{ e_1 \to e_1' } { e_1 [\tau] \to e_1' [\tau] }
+
+    \inferrule*[right=E-T-$\beta$-reduce]{ } { (\Lambda \alpha . e) [\tau] \to e [\tau / \alpha] }
+\end{mathpar}
+
+\subsection{Statics}
+
+Again, note the type rules are mostly the same, except we need two new rules to handle the new constructs we've added.
+However, we also expand type contexts so that they contain type variables---this is just to be sure we don't introduce a type variable twice:
+
+\begin{tabular}{l r l}
+    $\Gamma$ & \bnfdef & $\cdot \bnfalt \Gamma, x : \tau \bnfalt \Gamma, \alpha$ \\
+\end{tabular}
+
+\begin{mathpar}
+    \inferrule*[right=T-Abs]{ \Gamma, \alpha \proves e : \tau } { \Gamma \proves \Lambda \alpha . e : \forall \alpha . \tau}
+
+    \inferrule*[right=T-App]{
+        \Gamma \proves e : \forall \alpha . \tau
+    } { \Gamma \proves e [\tau'] : \tau[\tau'/\alpha] }
+\end{mathpar}
+
+\section{Simple Extensions}
+
+The languages we've defined so far are technically quite expressive, but in practice nobody would want to use such a poorly-featured language.
+Real programmers want constructs like let, if-then-else, tuples, records, variants, and so on; note that all of these \textbf{can} be encoded with the constructs we already have.
+However, we will extend our language with them, and the appropriate typing rules to make them work.
+
+\subsection{If-Then-Else}
+
+\subsubsection{Syntax}
+
+We extend the expression sort, $E$, to be:
+
+\begin{tabular}{l r l}
+    E & \bnfdef & $\ldots \bnfalt \textbf{if} ~ \text{Bool} ~ \textbf{then} ~ E ~ \textbf{else} ~ E $ \\
+\end{tabular}
+
+\subsubsection{Dynamics}
+
+We now need a couple additional rules to evaluate if expressions:
+
+\begin{mathpar}
+    \inferrule*[right=If-Cond]{ c \to c' } {
+        \textbf{if} ~ c ~ \textbf{then} ~ e_1 ~ \textbf{else} ~ e_2 \to
+        \textbf{if} ~ c' ~ \textbf{then} ~ e_1 ~ \textbf{else} ~ e_2  }
+
+    \inferrule*[right=If-True]{ } {
+        \textbf{if} ~ \text{true} ~ \textbf{then} ~ e_1 ~ \textbf{else} ~ e_2 \to e_1 }
+
+    \inferrule*[right=If-False]{ } {
+        \textbf{if} ~ \text{false} ~ \textbf{then} ~ e_1 ~ \textbf{else} ~ e_2 \to e_2 }
+\end{mathpar}
+
+\subsubsection{Statics}
+
+\begin{mathpar}
+    \inferrule*[right=T-If]{
+        \Gamma \proves c : \text{bool}
+        \and
+        \Gamma \proves e_1 : \tau
+        \and
+        \Gamma \proves e_2 : \tau
+    } { \Gamma \proves \textbf{if} ~ \text{false} ~ \textbf{then} ~ e_1 ~ \textbf{else} ~ e_2 : \tau }
+\end{mathpar}
+
+\subsection{Products}
+
+Most languages have so-called ``product-types'', though they're generally available under different names.
+If we think of types as sets (and ineed, many types can be represented by sets), then product types are simply products of sets; for example, the type of pairs of integers and booleans, usually written $\text{int} \times \text{bool}$ (or, in Haskell, $(\text{int}, \text{bool})$), is a product type.
+More generally, we can form products of any finite number of types, but the resulting type will be isomorphic (but \textbf{not} equal) to a pair of pairs of pairs of pairs, and so on.
+It is possible to define products of an infinite number of types: we can view universal types infinite products (with type application as the projections).
+However, this view is not trememdously useful, so that's all I'll say about it for now.
+
+\subsubsection{Syntax}
+
+For pairs, we need to extend our types to contain so-called product types as well as the expression-sort.
+We also need to extend the values to pairs of values.
+Finally, we want to actually use our pairs---we need to be able to get values our of them.
+For this purpose we add ``projections'' to our syntax.
+
+\begin{tabular}{l r l}
+    V & \bnfdef & $\ldots \bnfalt (V, V)$ \\
+    E & \bnfdef & $\ldots \bnfalt (E, E) \bnfalt E.\ell \bnfalt E.r$ \\
+    $\tau$ & \bnfdef & $\ldots \bnfalt \tau \times \tau$ \\
+\end{tabular}
+
+\subsubsection{Dynamics}
+
+\begin{mathpar}
+    \inferrule*[right=Pair-L]{ e_\ell \to e_\ell' } { (e_\ell, e_r) \to (e_\ell', e_r) }
+
+    \inferrule*[right=Pair-R]{ e_r \to e_r' } { (e_\ell, e_r) \to (e_\ell, e_r') }
+
+    \inferrule*[right=Proj-L]{ } { (e_\ell, e_r).\ell \to e_\ell }
+
+    \inferrule*[right=Proj-R]{ } { (e_\ell, e_r).r \to e_r }
+\end{mathpar}
+
+\subsubsection{Statics}
+
+\begin{mathpar}
+    \inferrule*[right=T-Pair]{
+        \Gamma \proves e_\ell : \tau_\ell
+        \and
+        \Gamma \proves e_r : \tau_r
+    } { \Gamma \proves (e_\ell, e_r) : \tau_\ell \times \tau_r }
+
+    \inferrule*[right=T-Proj-L]{
+        \Gamma \proves e : \tau_\ell \times \tau_r
+    } { \Gamma \proves e.\ell : \tau_\ell }
+
+    \inferrule*[right=T-Proj-R]{
+        \Gamma \proves e : \tau_\ell \times \tau_r
+    } { \Gamma \proves e.r : \tau_r }
+\end{mathpar}
+
+\subsubsection{Products in System-$F$}
+
+As noted before, it is \textbf{possible}, but tedious, to represent products in pure System-$F$, without extensions.
+There is one central function, $\texttt{pair}$:
+\eq{
+    \texttt{pair} &: \forall \alpha . \forall \beta . \alpha \to \beta \to \forall \gamma . (\alpha \to \beta \to \gamma) \to \gamma \\
+    \texttt{pair} &= \Lambda \alpha. \Lambda \beta . \lambda x : \alpha . \lambda y : \beta . \Lambda \gamma . \lambda p : \alpha \to \beta \to \gamma. p ~ x ~ y
+}
+
+Then the term $(e_1, e_2)$ coresponds to $\texttt{pair} ~ [\tau_1] ~ [\tau_2] ~ e_1 ~ e_2$, where $e_1 : \tau_1$ and $e_2 : \tau_2$, the term $e.\ell$ corresponds to $e ~ [\tau_1] ~ (\lambda x : \tau_1 . \lambda y : \tau_2 . x)$ and $e.r$ corresponds to $e ~ [\tau_2] ~ (\lambda x : \tau_1. \lambda y : \tau_2 . y)$
+We can check that these terms have the expected types, under the assumption that $e : \tau_1 \times \tau_2$, where $\tau_1 \times \tau_2 := \forall \gamma. (\tau_1 \to \tau_2 \to \gamma) \to \gamma$.
+Below we can that our translation of $e.\ell$ has the expected type; namely $e.\ell : \tau_1$:
+\begin{mathpar}
+    \inferrule*{
+        \inferrule*{ \textsc{Assumption} }{ \Gamma \proves e : \forall \gamma . (\tau_1 \to \tau_2 \to \gamma) \to \gamma }
+        \and
+        \inferrule*[right=T-App]{ }{ \Gamma \proves e ~ [ \tau_1] : (\tau_1 \to \tau_2 \to \tau_1) \to \tau_1 }
+        \and
+        \inferrule*[right=Abs]{
+            \inferrule*[right=Abs]{
+                \inferrule*[right=Var]{
+                    x : \tau_1 \in \Gamma, x : \tau_1, y : \tau_2
+                }{
+                    \Gamma, x : \tau_1, y : \tau_2 \proves x : \tau_1
+                }
+            } { \Gamma, x : \tau_1 \proves \lambda y : \tau_2. x : \tau_2 \to \tau_1 }
+        }{ \Gamma \proves \lambda x : \tau_1 . \lambda y : \tau_2 .x : \tau_1 \to \tau_2 \to \tau_1 }
+    }{ \Gamma \proves e ~ [\tau_1] ~ (\lambda x : \tau_1 . \lambda y : \tau_2 . x) : \tau_1 }
+\end{mathpar}
+
+Having defined these translations, the evaluation of terms simply uses the standard evaluation rules of System-$F$.
+The downside is that there are many type annotations that are now necessary that we didn't need before.
+
+\subsection{Sums}
+
+Sometimes it also makes sense to have a function that may have return one of two types---often this is useful when methods may fail with some error, and return an error message (e.g., a string), or succeed and return the desired result of the computation.
+This is represented by sum types, which we can encode as follows:
+
+\subsubsection{Syntax}
+
+\begin{tabular}{l r l}
+    V & \bnfdef & $\ldots \bnfalt L_\tau(V) \bnfalt R_\tau(V)$ \\
+    E & \bnfdef & $\ldots \bnfalt L_\tau(E) \bnfalt R_\tau(E) \bnfalt \textbf{case} ~ E ~ \textbf{of} ~ L_\tau(x) \mapsto E; R_\tau(y) \mapsto E$ \\
+    $\tau$ & \bnfdef & $\ldots \bnfalt \tau + \tau$ \\
+\end{tabular}
+
+\subsubsection{Dynamics}
+
+\begin{mathpar}
+    \inferrule*[right=Congr-L]{ e \to e' } { L_\tau(e) \to L_\tau(e') }
+
+    \inferrule*[right=Congr-R]{ e \to e' } { R_\tau(e) \to R_\tau(e') }
+
+    \inferrule*[right=Case-Congr]{ e \to e' } {
+        \textbf{case} ~ e ~ \textbf{of} ~ L_\tau(x) \mapsto e_1; R_\tau(y) \mapsto e_2 \to
+        \textbf{case} ~ e' ~ \textbf{of} ~ L_\tau(x) \mapsto e_1; R_\tau(y) \mapsto e_2
+    }
+
+    \inferrule*[right=Case-L]{ } {
+        \textbf{case} ~ L_\tau(v) ~ \textbf{of} ~ L_\tau(x) \mapsto e_1; R_\tau(y) \mapsto e_2 \to e_1[v/x]
+    }
+
+    \inferrule*[right=Case-R]{ } {
+        \textbf{case} ~ R_\tau(v) ~ \textbf{of} ~ L_\tau(x) \mapsto e_1; R_\tau(y) \mapsto e_2 \to e_2[v/y]
+    }
+\end{mathpar}
+
+\subsubsection{Statics}
+
+\begin{mathpar}
+    \inferrule*[right=T-Sum-L]{
+        \Gamma \proves e : \tau_\ell
+    } { \Gamma \proves L_{\tau_\ell + \tau_r}(e) : \tau_\ell + \tau_r }
+
+    \inferrule*[right=T-Sum-R]{
+        \Gamma \proves e : \tau_r
+    } { \Gamma \proves R_{\tau_\ell + \tau_r}(e) : \tau_\ell + \tau_r }
+
+    \inferrule*[right=T-Case]{
+        \Gamma \proves e : \tau_\ell + \tau_r
+        \and
+        \Gamma, x : \tau_\ell \proves e_1 : \tau
+        \and
+        \Gamma, y : \tau_r \proves e_2 : \tau
+    } { \textbf{case} ~ e ~ \textbf{of} ~ L_{\tau_\ell + \tau_r}(x) \mapsto e_1; R_{\tau_\ell + \tau_r}(y) \mapsto e_2 : \tau }
+\end{mathpar}
+
+\subsubsection{Sums in System-$F$}
+
+As noted before, it is also possible to represent sums in pure System-$F$.
+
+As in products, we convert our ``constructors'' into System-$F$ terms, which build terms that, given a ``destructor'' function, return some result type.
+Because we have two constructors for sums, the left and the right, we need two functions.
+Both are shown below.
+Checking that they work as desired is fairly straighforward.
+\eq{
+    \texttt{left} &: \forall \alpha . \forall \beta . \alpha \to \forall \gamma . (\alpha \to \gamma) \to (\beta \to \gamma) \to \gamma \\
+    \texttt{left} &= \Lambda \alpha. \Lambda \beta . \lambda x : \alpha . \Lambda \gamma . \lambda p_\ell : \alpha \to \gamma. \lambda p_r : \beta \to \gamma. p_\ell ~ x
+}
+\eq{
+    \texttt{right} &: \forall \alpha . \forall \beta . \beta \to \forall \gamma . (\alpha \to \gamma) \to (\beta \to \gamma) \to \gamma \\
+    \texttt{right} &= \Lambda \alpha. \Lambda \beta . \lambda y : \beta . \Lambda \gamma . \lambda p_\ell : \alpha \to \gamma. \lambda p_r : \beta \to \gamma. p_r ~ y
+}
+
+\section{Kinds}
+
+Up until now, our types have been pretty simple, with only a couple of ways to make new types.
+But in ``real'' programming languages, we have many ways to construct types: in Haskell, we have functors, monads, and many other types that we can't really describe yet.
+In fact, even our description of pairs is informal; we wrote that $\tau_1 \times \tau_2 := \forall \gamma . (\tau_1 \to \tau_2 \to \gamma) \to \gamma$, but this is a somewhat troublesome: the only mechanism for substitution in types we have is the universal quantifier $\forall$, but we didn't use it for $\tau_1$ or $\tau_2$.
+To have more interesting types, we need to define these concepts in a more general sense.
+
+This is where \emph{kinds} come in---kinds are basically ``types for types''.
+They describe which type-level functions (typically called type constructors, in the simple cases, like pairs) we can apply to which types.
+The simplest kind system, which we'll discuss, is the same one that Haskell uses (modulo extensions).
+
+For our discussion, we'll be using System-$F$ as a base, and we'll obtain the well known System-$F_\omega$.
+Note: it's called System-$F_\omega$ because it's essentially the limiting case of the various System-$F_n$'s, where we allowed only kinds of order $n$ or lower; $\omega$ being the first infinite ordinal.
+
+\subsection{Syntax}
+
+Below is the full syntax for System-$F_\omega$.
+
+\begin{tabular}{l r l}
+    V & \bnfdef & $x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha :: \mathcal{K} . E$ \\
+    \\
+
+    E & \bnfdef & $V \bnfalt E ~ E \bnfalt E ~ [\tau] $ \\
+    \\
+
+    $\tau$ & \bnfdef & $\tau \to \tau \bnfalt \forall \alpha :: \mathcal{K} . \tau \bnfalt \lambda \alpha :: \mathcal{K} . \tau \bnfalt \tau ~ \tau $ \\
+    \\
+
+    $\mathcal{K}$ & \bnfdef & $* \bnfalt \mathcal{K} \implies \mathcal{K}$ \\
+    \\
+
+    $\Gamma$ & \bnfdef & $\cdot \bnfalt \Gamma, x : \tau \bnfalt \Gamma, \alpha :: \mathcal{K} $ \\
+\end{tabular}
+
+Here, the kind $* \implies *$ means a type constructor that takes a single (type) argument, and produces a type---for example, $\texttt{List} :: * \implies *$, and $\texttt{List} \alpha :: *$.
+
+\subsection{Dynamics}
+
+The dynamics are exactly the same as before; kinds are an entirely \textbf{type-level} construct.
+
+\subsection{Statics}
+
+There are now two additional considerations.
+In previous systems, we were only concerned with type-checking terms; now that we have introduced a limited form of type-level computation, we must ensure that these type-level computations also do not go wrong---we need rules for \emph{kind checking}, and rules to describe how type computations work; in some sense, these are evaluation rules, but they aren't applied during execution, but during typechecking, so we give them here.
+
+First, we give the the kinding rules, which are quite similar to the typing rules in the simply-typed $\lambda$-calculus.
+The main difference is that we now need to give kinding rules for types as well.
+\begin{mathpar}
+    \inferrule*[right=K-Var]{
+        \alpha :: \mathcal{K} \in \Gamma
+    } { \Gamma \proves \alpha :: \mathcal{K} }
+
+    \inferrule*[right=K-Abs]{
+        \Gamma, \alpha :: \mathcal{K}_1 \proves \tau :: \mathcal{K}_2
+    } { \Gamma \proves \lambda \alpha :: \mathcal{K}_1 . \tau :: \mathcal{K}_1 \implies \mathcal{K}_2 }
+
+    \inferrule*[right=K-App]{
+        \Gamma \proves \tau :: \mathcal{K}_1 \implies \mathcal{K}_2
+        \and
+        \Gamma \proves \tau' :: \mathcal{K}_1
+    } { \Gamma \proves \tau \tau' :: \mathcal{K}_2 }
+
+    \inferrule*[right=K-Func]{
+        \Gamma \proves \tau_1 :: *
+        \and
+        \Gamma \proves \tau_2 :: *
+    } { \Gamma \proves \tau_1 \to \tau_2 :: * }
+
+    \inferrule*[right=K-Forall]{
+        \Gamma, \alpha :: \mathcal{K} \proves \tau :: *
+    } { \Gamma \proves \forall \alpha :: \mathcal{K} . \tau :: * }
+\end{mathpar}
+
+Now for the type computation rules:
+\begin{mathpar}
+    \inferrule*[right=TE-Func]{
+        \sigma_1 \reducesto \tau_1
+        \and
+        \sigma_1 \reducesto \tau_2
+    } { (\sigma_1 \to \sigma_2) \reducesto (\tau_1 \to \tau_2) }
+
+    \inferrule*[right=TE-Forall]{
+        \sigma \reducesto \tau
+    } { \forall \alpha :: \mathcal{K} . \sigma \reducesto \forall \alpha :: \mathcal{K} . \tau }
+
+    \inferrule*[right=TE-Abs]{
+        \sigma \reducesto \tau
+    } { \lambda \alpha :: \mathcal{K} . \sigma \reducesto \lambda \alpha :: \mathcal{K} . \tau  }
+
+    \inferrule*[right=TE-App]{
+    } { (\lambda \alpha :: \mathcal{K} . \sigma) \tau \reducesto \sigma[\tau / \alpha] }
+
+    \inferrule*[right=TE-App-Congr]{
+        \sigma_1 \reducesto \tau_1
+        \and
+        \sigma_2 \reducesto \tau_2
+    } { \sigma_1 \sigma_2 \reducesto \tau_1 \tau_2 }
+\end{mathpar}
+
+And finally, the typing rules, which must ensure that every term has the kind of types.
+We only show rules that are different or new:
+\begin{mathpar}
+    \inferrule*[right=Abs]{
+        \Gamma \proves \tau_1 :: *
+        \and
+        \Gamma, x : \tau_1 \proves e : \tau_2
+    } { \Gamma \proves \lambda x : \tau_1 . e : \tau_1 \to \tau_2 }
+
+    \inferrule*[right=T-Abs]{
+        \Gamma, \alpha :: \mathcal{K} \proves e : \tau
+    } { \Gamma \proves \Lambda \alpha :: \mathcal{K} . e : \forall \alpha :: \mathcal{K}. \tau }
+
+    \inferrule*[right=T-App]{
+        \Gamma \proves f : \forall \alpha :: \mathcal{K} . \tau
+        \and
+        \Gamma \proves \sigma :: \mathcal{K}
+    } { \Gamma \proves f [\sigma] : \tau[\sigma/\alpha] }
+
+    \inferrule*[right=T-Reduce]{
+        \Gamma \proves e : \sigma
+        \and
+        \sigma \reducesto \tau
+        \and
+        \Gamma \proves \tau :: \mathcal{K}
+    } { \Gamma \proves e : \tau }
+\end{mathpar}
+
+\subsection{Extended Example}
+
+Below we develop the necessary definitions to express the Haskell function \lstinline[language=haskell]{sequence :: Monad m => [m a] -> m [a]}.
+To do this, we must define monads and lists; we will also define functors and pairs along the way for instructional purposes, but also for convenience.
+
+\subsection{Pairs}
+
+The first new type that we will define is a pair.
+Recall from our earlier discussion that we can define a function $\texttt{pair}$ that builds pairs.
+There are only a couple slight changes to the syntax we must adhere to, that is, the kind must be specified on type abstractions:
+\eq{
+    \texttt{pair} &: \forall \alpha :: *. \forall \beta :: *. \alpha \to \beta \to \forall \gamma :: *. (\alpha \to \beta \to \gamma) \to \gamma \\
+    \texttt{pair} &= \Lambda \alpha :: *. \Lambda \beta :: *. \lambda x : \alpha . \lambda y : \beta . \Lambda \gamma :: * . \lambda p : \alpha \to \beta \to \gamma. p ~ x ~ y
+}
+
+This will get quite tedious, so we make the following simplifcations to the syntax:
+\begin{enumerate}
+    \item If the kind of a type variable is $*$, it will simply be omitted; otherwise, it will be written as specified above.
+    \item For repeated abstractions and quantifiers, we will condense them into a single abstraction/quantifier.
+\end{enumerate}
+There, we will write the above as:
+\eq{
+    \texttt{pair} &: \forall \alpha, \beta. \alpha \to \beta \to \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma \\
+    \texttt{pair} &= \Lambda \alpha, \beta. \lambda x : \alpha, y : \beta . \Lambda \gamma . \lambda p : \alpha \to \beta \to \gamma. p ~ x ~ y
+}
+
+We also define the type of pairs using infix notation to be
+\[
+    \cdot \times \cdot := \lambda \alpha, \beta. \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma
+\]
+
+Note that defining things like this is not strictly allowed in the language's syntax; however, consider the following program:
+\[
+    \textbf{let}~id : \forall \alpha. \alpha \to \alpha := \Lambda \alpha. \lambda x : \alpha. x~\textbf{in} ~ id ~ id
+\]
+We can transform this program into one without the definition by changing it to:
+\[
+    (\lambda id : \forall \alpha. \alpha \to \alpha. id ~ id) (\Lambda \alpha . \lambda x : \alpha. x)
+\]
+So for convenience's sake, as the terms are already ugly enough, we ignore the technicalities of managing these definitions.
+
+So we can write the type of \texttt{pair} as:
+\eq{
+    \texttt{pair} &: \forall \alpha, \beta. \alpha \to \beta \to \alpha \times \beta
+}
+
+Now we define two new functions, the projections of the pair, \texttt{fst} and \texttt{snd}:
+\eq{
+    \texttt{fst} &: \forall \alpha, \beta. \alpha \times \beta \to \alpha \\
+    \texttt{fst} &= \Lambda \alpha, \beta. \lambda pair : \alpha \times \beta. pair ~ [\alpha] ~ (\lambda x : \alpha, y : \beta . x) \\
+    \texttt{snd} &: \forall \alpha, \beta. \alpha \times \beta \to \beta \\
+    \texttt{snd} &= \Lambda \alpha, \beta. \lambda pair : \alpha \times \beta. pair ~ [\beta] ~ (\lambda x : \alpha, y : \beta . y)
+}
+
+It's worth noting at this point that this is already something we couldn't formally write in System $F$ alone, and we obtain the typing rules and evaluation rules for products without having to define them ourselves (and more importantly, prove that everything still works).
+
+\subsection{Lists}
+
+We now define lists, and two constructors on lists: \texttt{nil} and \texttt{cons}.
+Recall that the intuition for pairs is that we store the necessary data ``inside'' the function (e.g., in a concrete implementation, in a closure); for lists we do something similar, but the way in which lists are consumed in somewhat more complicated.
+But, recalling our favorite programming language Haskell, we can write everything we want using just \texttt{foldl}; our representation of lists will essentialyl be \texttt{foldl} with one argument ``missing'' (in fact, encoded in the ``closure'', so to speak).
+First, the declaration of the type:
+\eq{
+    \texttt{List} := \lambda \alpha. \forall \beta . (\alpha \to \beta \to \beta) \to \beta \to \beta
+}
+Now we define the two constructors:
+\eq{
+    \texttt{nil} &: \forall \alpha. \texttt{List} ~ \alpha \\
+    \texttt{nil} &= \Lambda \alpha. \Lambda \beta. \lambda red : \alpha \to \beta \to \beta, init : \beta . init\\
+    \texttt{cons} &: \forall \alpha. \alpha \to \texttt{List} ~ \alpha \to \texttt{List}~\alpha \\
+    \texttt{cons} &= \Lambda \alpha. \lambda x : \alpha. \lambda xs : \texttt{List}~\alpha. \Lambda \beta. \lambda red : \alpha \to \beta \to \beta, init : \beta . xs ~ [\beta] ~ red ~ (red ~ x ~ init)
+}
+
+\subsubsection{Summing a List}
+Here is an example program, summing a list of numbers:
+It assumes we have numbers, but we could define them in pure System $F_\omega$ (or even System $F$) if we chose (e.g., as Church numerals).
+\eq{
+    \texttt{sum} &: \texttt{List}~\texttt{Nat} \to \texttt{Nat} \\
+    \texttt{sum} &= \lambda xs : \texttt{List}~\texttt{Nat}. xs ~ [\texttt{Nat}] ~ (\lambda x : \texttt{Nat}. \lambda rest : \texttt{Nat}. x + rest) ~ 0
+}
+Then:
+\eq{
+    &\texttt{sum} ~ (\texttt{cons} ~ [\texttt{Nat}] ~ 1 (\texttt{cons} ~ [\texttt{Nat}] ~ 2 (\texttt{nil} [\texttt{Nat}]))) \\
+    &\to \\
+    &3 \\
+}
+
+\subsection{Functors}
+
+The previous two examples aren't very convincing examples of why we needed kinds---after all, $\texttt{List}$ and $\cdot \times \cdot$ are simple abbreviations.
+Of course, making them formal is nice, but maybe not nice enough to justify all the effort.
+However, we get much more: we can use so-called ``higher-kinded'', like Haskell does, and define more complicated structures like functors:
+\eq{
+    \texttt{Functor} = \lambda f :: * \implies *. \forall \alpha, \beta . (\alpha \to \beta) \to (f~\alpha \to f~\beta) \\
+}
+Essentially, a functor is a structure that can be mapped over.
+For example, \texttt{List} is a functor; what does it mean to say something is a functor?
+In this context, ``$f$ is a functor'' means that we can write a term of type $\texttt{Functor}~f$; below is the definition for lists:
+\eq{
+    \texttt{map} &: \texttt{Functor} ~ \texttt{List}\\
+    \texttt{map} &= \Lambda \alpha, \beta. \lambda g : \alpha \to \beta. \lambda xs : \texttt{List}~\alpha. xs ~ [\texttt{List} ~ \beta] ~ (\lambda a : \alpha, tail : \texttt{List}~\beta. cons ~ [\beta] ~ (g ~ a) ~ tail) ~ (\texttt{nil} ~ [\beta])
+}
+Suppose we have a function $\texttt{increment} : \texttt{Nat} \to \texttt{Nat}$; using $\texttt{map}$, we can write a functor that increments a whole list of nats: $\texttt{map}~[\texttt{Nat}]~[\texttt{Nat}] ~ \texttt{increment}$.
+
+Functors are incredibly useful, because they let us abstract over data structures---they provide an interface of being ``mappable''.
+Many common data structures, such as pairs, trees, dictionaries, and many more are all functors.
+Without kinds, we couldn't generalize this idea in a programming language.
+
+\subsection{Monads}
+
+Another useful type is the \emph{monad}; we won't talk too much about what these are, but they're essentially a special kind of functor that can be used to compose ``effectful'' computations.
+They are essentially a pair of two functions, called \texttt{pure} (or \texttt{return}) and \texttt{bind}.
+\texttt{pure} ``wraps'' a pure value in the monad, and \texttt{bind} performs an effectful computation on a monadic value.
+We define monads as pair of these functions:
+\eq{
+    \texttt{Monad} = \lambda m :: * \implies *. (\forall \alpha. \alpha \to m~\alpha) \times (\forall \alpha, \beta. m~\alpha \to (\alpha \to m~\beta) \to m~\beta)
+}
+We then define \texttt{pure} and \texttt{bind} as projections on monads.
+\eq{
+    \texttt{pure} &: \forall m :: * \implies *. \texttt{Monad}~m \to \forall \alpha. \alpha \to m~\alpha \\
+    \texttt{pure} &= \Lambda m :: * \implies *. \lambda mon : \texttt{Monad}~m. \texttt{fst} ~ [\forall \alpha. \alpha \to m~\alpha] ~ [\forall \alpha, \beta. m~\alpha \to (\alpha \to m~\beta) \to m~\beta] ~ mon \\
+    \texttt{bind} &: \forall m :: * \implies *. \texttt{Monad}~m \to \forall \alpha, \beta. m~\alpha \to (\alpha \to m~\beta) \to m~\beta \\
+    \texttt{bind} &= \Lambda m :: * \implies *. \lambda mon : \texttt{Monad}~m. \texttt{snd} ~ [\forall \alpha. \alpha \to m~\alpha] ~ [\forall \alpha, \beta. m~\alpha \to (\alpha \to m~\beta) \to m~\beta] ~ mon
+}
+
+\subsection{Writing \texttt{sequence}}
+
+We are now ready to implement \texttt{sequence}.
+For brevity we write $\texttt{pure}$ and $\texttt{bind}$ instead of $\texttt{pure}~ [m] ~ mon$ and $\texttt{bind}~[m]~mon$, respectively.
+\eq{
+    \texttt{sequence} &: \forall m :: * \implies *. \texttt{Monad}~m \to \forall \alpha. \texttt{List}~(m~\alpha) \to m~(\texttt{List}~\alpha) \\
+    \texttt{sequence} &= \Lambda m :: * \implies *. \lambda mon : \texttt{Monad}~m. \Lambda \alpha. \lambda xs : \texttt{List}~(m~\alpha). \\
+                      &\qquad xs ~ [m~(\texttt{List}~\alpha)] \\
+                      &\qquad \qquad (\lambda mx : m~\alpha, mxs : m~(\texttt{List}~\alpha). \texttt{bind} ~ [\alpha] ~ [\texttt{List}~\alpha] ~ mx \\
+                      &\qquad \qquad \qquad (\lambda x : \alpha. \texttt{bind} ~ [\texttt{List}~\alpha] ~ [\texttt{List}~\alpha] ~ mxs \\
+                      &\qquad \qquad \qquad \qquad (\lambda xs : \texttt{List}~\alpha. \texttt{pure} ~ [\texttt{List}~\alpha] ~ (\texttt{cons} ~ [\alpha] ~ x ~ xs))) \\
+                      &\qquad \qquad (\texttt{pure} ~ [\texttt{List}~\alpha] ~ (\texttt{nil} ~ [\alpha]))
+}
+
+\section{Dependent Types}
+\newcommand{\T}{\mathcal{T}}
+\newcommand{\ty}{\textsc{Type}}
+\newcommand{\kind}{\textsc{Kind}}
+
+\subsection{Background and Motivation}
+
+\subsection{Pure First-Order Dependent Types}
+
+Pure refers to the abscence of $\Sigma$-types (dependent sum types), and first-order means that we can't quantify over types, like we can in System-$F$.
+
+\subsubsection{Syntax}
+
+Here we think of $\ty$ as the sort of ``proper'' types and $\kind$ as the sort of ``kinds.''
+Both essentially are just syntactic constants.
+\begin{tabular}{l r l}
+    $\T$ & \bnfdef & $\mathcal{S} \bnfalt x \bnfalt \lambda x : \T . \T \bnfalt \T ~ \T \bnfalt \bm{\Pi} x : \T . \T $ \\
+    \\
+
+    $\mathcal{S}$ & \bnfdef & $\ty \bnfalt \kind$ \\
+    \\
+
+    $\Gamma$ & \bnfdef & $\cdot \bnfalt \Gamma, x : \T$ \\
+\end{tabular}
+
+\subsubsection{Dynamics}
+
+\subsubsection{Statics}
+
+\begin{mathpar}
+
+    \inferrule*[right=Type-Kind]{ }{ \Gamma \proves \ty : \kind}
+
+    \inferrule*[right=Var]{
+        x : \tau \in \Gamma
+        \and
+        \Gamma \proves \tau : \mathcal{S}
+    } { \Gamma \proves x : \tau }
+
+    \inferrule*[right=Abs]{
+        \Gamma \proves \tau_1 : \ty
+        \and
+        \Gamma, x : \tau_1 \proves e : \tau_2
+    } { \Gamma \proves \lambda x : \tau_1 . e : \bm{\Pi} x : \tau_1 . \tau_2 }
+
+    \inferrule*[right=App]{
+        \Gamma \proves e_1 : \bm{\Pi} x : \tau_1 . \tau_2
+        \and
+        \Gamma \proves e_2 : \tau_1
+    } { \Gamma \proves e_1 e_2 : \tau_2 [ e_2 / x ] }
+
+    \\
+
+    \inferrule*[right=Pi]{
+        \Gamma \proves \tau : \mathcal{S}_1
+        \and
+        \Gamma, x : \tau \proves \sigma : \mathcal{S}_2
+    } { \Gamma \proves \bm{\Pi} x : \tau . \sigma : \mathcal{S} }
+    \twhere (\mathcal{S}_1, \mathcal{S}_2, \mathcal{S}_3) \in \curlys{(\ty, \ty, \ty), (\ty, \kind, \kind)}
+
+    \inferrule*[right=Equiv]{
+        \Gamma \proves e : \tau
+        \and
+        \tau \equiv_{\beta} \sigma
+        \and
+        \Gamma \proves \sigma : \mathcal{S}
+    } { \Gamma \proves e : \sigma }
+
+\end{mathpar}
+
+We define $\tau \equiv_{\beta} \sigma$ by the reflexive-transitive closure of the $\beta$-reduction rule.
+That is:
+\begin{mathpar}
+    \inferrule*[right=$\beta$-reduce]{ }{ (\lambda x : \tau . e) a \equiv e[a/x] }
+\end{mathpar}
+
+\subsubsection{Examples}
+
+Now that we have this system, how do we actually program in it?
+
+\subsection{Pure Type Systems}
+
+In fact, the many variants of the $\lambda$-calculus (sometimes referred to as the $\lambda$-Cube), System $F$, System $F_{\omega}$, and so forth, can be formalized as a pure type system.
+In fact, we can also express Coq's underlying type syste, the Calculus of Inductive Constructions, as a Pure Type System.
+
+First let's define a pure type system---in fact, we already almost did this above.
+
+\subsection{The Calculus of Inductive Constructions}
+
+\section{References}
+
+\reed{TODO}
+
+Note that this document roughly follows Benjamin Pierce's \emph{Types and Programming Languages} (as well as Pierce et al.'s \emph{Advanced Types and Programming Languages}) and Robert Harper's \emph{Practical Foundations for Programming Languages}.
+\url{http://www4.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf}
+
+\end{document}
+
