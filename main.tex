@@ -17,32 +17,11 @@
 \usepackage[margin=1.25in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{kpfonts}
+\usepackage{dutchcal}
 
 \input{LaTeX/macros.tex}
 \input{LaTeX/lemmas.tex}
-
-\lstset{
-  frame=none,
-  xleftmargin=2pt,
-  stepnumber=1,
-  numbers=left,
-  numbersep=5pt,
-  numberstyle=\ttfamily\tiny\color[gray]{0.3},
-  belowcaptionskip=\bigskipamount,
-  captionpos=b,
-  escapeinside={*'}{'*},
-  language=haskell,
-  tabsize=2,
-  emphstyle={\bf},
-  commentstyle=\it,
-  stringstyle=\mdseries\rmfamily,
-  showspaces=false,
-  keywordstyle=\bfseries\rmfamily,
-  columns=flexible,
-  basicstyle=\small\sffamily,
-  showstringspaces=false,
-  morecomment=[l]\%,
-}
+\input{LaTeX/haskell.tex}
 
 \newcommand{\reducesto}{\Downarrow}
 
@@ -58,7 +37,7 @@ It means that if I have a program that the compiler says is well-typed, then all
 We should never run into a case when the compiler says ``your program is right'' but then it says ``actually I couldn't figure out what to do here.''
 This would mean, that while we were writing the compiler, we forgot some cases; that's incredibly annoying for users, so to avoid this, we can prove that we didn't miss any cases.
 
-To prove that this won't happen, we need a mathematical representation of our language and it's type system.
+To prove that this won't happen, we need a mathematical representation of our language and its type system.
 Then we can prove type safety: ``Well-typed programs don't get stuck.''
 
 The simplest language we can see these ideas in is the simply-typed $\lambda$-calculus.
@@ -71,7 +50,7 @@ This is simply to reduce the need to declare that there is no variable shadowing
 \subsection{Syntax}
 
 \begin{tabular}{l r l}
-    V & \bnfdef & Bool \bnfalt $x \bnfalt \lambda x : \tau . E$ \\
+    V & \bnfdef & true \bnfalt false \bnfalt $x \bnfalt \lambda x : \tau . E$ \\
 
     E & \bnfdef & $V \bnfalt E ~ E$ \\
 
@@ -111,7 +90,7 @@ This is simply to reduce the need to declare that there is no variable shadowing
 
     \inferrule*[right=Abs]{
         \Gamma, x : \tau_1 \proves e : \tau_2
-    } { \Gamma \proves \lambda x : \tau . e : \tau_1 \to \tau_2 }
+    } { \Gamma \proves \lambda x : \tau_1 . e : \tau_1 \to \tau_2 }
 
     \inferrule*[right=App]{
         \Gamma \proves e_1 : \tau_1 \to \tau_2
@@ -176,7 +155,7 @@ We'll need one tool to prove preservation:
     There are two subcases to consider, depending on how we derived $e \to e'$:
 
     \begin{itemize}
-        \item[\textsc{E-App}] In this case, $e_1 \to e_1'$, and we already know that $\Gamma \proves e_1 : \tau_1 \to \tau_2$, so by the inductive hypothesis, we know $\Gamma \proves e_1' : \tau_1 \to t\tau_2$.
+        \item[\textsc{E-App}] In this case, $e_1 \to e_1'$, and we already know that $\Gamma \proves e_1 : \tau_1 \to \tau_2$, so by the inductive hypothesis, we know $\Gamma \proves e_1' : \tau_1 \to \tau_2$.
             Then we can apply the \textsc{App} rule to get $\Gamma \proves e_1' e_2 : \tau_2$.
 
         \item[\textsc{E-$\beta$-reduce}]
@@ -202,18 +181,18 @@ We will explore these type systems later (probably).
 \subsection{Syntax}
 
 \begin{tabular}{l r l}
-    V & \bnfdef & Bool \bnfalt $x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha . E $ \\
+    V & \bnfdef & $x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha . E $ \\
 
     E & \bnfdef & $V \bnfalt E ~ E \bnfalt E ~ [\tau] $ \\
 
-    $\tau$ & \bnfdef & bool \bnfalt $\tau \to \tau \bnfalt \forall \alpha . \tau$ \\
+    $\tau$ & \bnfdef & $\alpha \bnfalt \tau \to \tau \bnfalt \forall \alpha . \tau$ \\
 \end{tabular}
 
 \paragraph{Examples}
 
 \begin{enumerate}
-    \item $\Lambda \alpha . \lambda x : \alpha \to \alpha. x$
-    \item $(\Lambda \alpha . \lambda x : \alpha \to \alpha. x) ~ [\text{bool}] ~ \text{true}$
+    \item $\Lambda \alpha . \lambda x : \alpha. x$
+    \item $(\Lambda \alpha . \lambda x : \alpha. x) ~ [\text{bool}] ~ \text{true}$
 \end{enumerate}
 
 \subsection{Dynamics}
@@ -712,11 +691,13 @@ For brevity we write $\texttt{pure}$ and $\texttt{bind}$ instead of $\texttt{pur
 \newcommand{\T}{\mathcal{T}}
 \newcommand{\ty}{\textsc{Type}}
 \newcommand{\kind}{\textsc{Kind}}
+\newcommand{\PiT}{\bm{\Pi}}
 
 \subsection{Background and Motivation}
 
 \subsection{Pure First-Order Dependent Types}
 
+We define the \emph{pure}, \emph{first-order}, \emph{dependent type} sytem $\lambda P$.
 Pure refers to the abscence of $\Sigma$-types (dependent sum types), and first-order means that we can't quantify over types, like we can in System-$F$.
 
 \subsubsection{Syntax}
@@ -724,7 +705,7 @@ Pure refers to the abscence of $\Sigma$-types (dependent sum types), and first-o
 Here we think of $\ty$ as the sort of ``proper'' types and $\kind$ as the sort of ``kinds.''
 Both essentially are just syntactic constants.
 \begin{tabular}{l r l}
-    $\T$ & \bnfdef & $\mathcal{S} \bnfalt x \bnfalt \lambda x : \T . \T \bnfalt \T ~ \T \bnfalt \bm{\Pi} x : \T . \T $ \\
+    $\T$ & \bnfdef & $\mathcal{S} \bnfalt x \bnfalt \lambda x : \T . \T \bnfalt \T ~ \T \bnfalt \PiT x : \T . \T $ \\
     \\
 
     $\mathcal{S}$ & \bnfdef & $\ty \bnfalt \kind$ \\
@@ -735,6 +716,8 @@ Both essentially are just syntactic constants.
 
 \subsubsection{Dynamics}
 
+The only evaluation rules are congruence rules and the standard $\beta$-reduction rule; we write this relation as $\to_{\beta}$, and we write its reflexive-transitive closure as $\leadsto_{\beta}$.
+
 \subsubsection{Statics}
 
 \begin{mathpar}
@@ -744,56 +727,143 @@ Both essentially are just syntactic constants.
     \inferrule*[right=Var]{
         x : \tau \in \Gamma
         \and
-        \Gamma \proves \tau : \mathcal{S}
+        \Gamma \proves \tau : s
     } { \Gamma \proves x : \tau }
 
     \inferrule*[right=Abs]{
-        \Gamma \proves \bm{\Pi} x : \tau_1 . \tau_2 : \mathcal{S}
+        \Gamma \proves \PiT x : \tau . \sigma : s
         \and
-        \Gamma, x : \tau_1 \proves e : \tau_2
-    } { \Gamma \proves \lambda x : \tau_1 . e : \bm{\Pi} x : \tau_1 . \tau_2 }
+        \Gamma, x : \tau \proves e : \sigma
+    } { \Gamma \proves \lambda x : \tau . e : \PiT x : \tau . \sigma }
 
     \inferrule*[right=App]{
-        \Gamma \proves e_1 : \bm{\Pi} x : \tau_1 . \tau_2
+        \Gamma \proves f : \PiT x : \tau . \sigma
         \and
-        \Gamma \proves e_2 : \tau_1
-    } { \Gamma \proves e_1 e_2 : \tau_2 [ e_2 / x ] }
+        \Gamma \proves e : \tau
+    } { \Gamma \proves f ~ e : \sigma [ e / x ] }
 
     \\
 
     \inferrule*[right=Pi]{
-        \Gamma \proves \tau : \mathcal{S}_1
+        \Gamma \proves \tau : r
         \and
-        \Gamma, x : \tau \proves \sigma : \mathcal{S}_2
-    } { \Gamma \proves \bm{\Pi} x : \tau . \sigma : \mathcal{S} }
-    \twhere (\mathcal{S}_1, \mathcal{S}_2, \mathcal{S}_3) \in \curlys{(\ty, \ty, \ty), (\ty, \kind, \kind)}
+        \Gamma, x : \tau \proves \sigma : s
+    } { \Gamma \proves \PiT x : \tau . \sigma : t }
+    \twhere (r,s,t) \in \curlys{(\ty, \ty, \ty), (\ty, \kind, \kind)}
+
+    \\
 
     \inferrule*[right=Equiv]{
         \Gamma \proves e : \tau
         \and
-        \tau \equiv_{\beta} \sigma
+        \tau =_{\beta} \sigma
         \and
-        \Gamma \proves \sigma : \mathcal{S}
+        \Gamma \proves \sigma : s
     } { \Gamma \proves e : \sigma }
 
 \end{mathpar}
 
-We define $\tau \equiv_{\beta} \sigma$ by the reflexive-transitive closure of the $\beta$-reduction rule.
-That is:
-\begin{mathpar}
-    \inferrule*[right=$\beta$-reduce]{ }{ (\lambda x : \tau . e) a \equiv e[a/x] }
-\end{mathpar}
+We define $\tau =_{\beta} \sigma$ by the symmetric closure of $\leadsto_{\beta}$ (or the reflexive-symmetric-transitive closure of $\to_{\beta}$).
 
 \subsubsection{Examples}
 
 Now that we have this system, how do we actually program in it?
+The answer is we sort of can't actually \textbf{do} anything yet---much like the simply-typed $\lambda$-calculus, there actually aren't any well-typed ground terms.
+
+However, using an appropriate context, we can still do some interesting things.
+For the the next section we'll be using (and expanding) onto the following context:
+\newcommand{\consT}{\texttt{cons}}
+\newcommand{\nilT}{\texttt{nil}}
+\newcommand{\vecT}{\texttt{Vector}}
+\newcommand{\snat}{\mathcal{s}}
+\eq{
+    \N &: \ty \\
+    0 &: \N \\
+    \snat &: \PiT n : \N . \N \\
+    \vecT &: \PiT n : \N . \ty \\
+    \nilT &: \vecT ~ 0 \\
+    \consT &: \PiT n : \N . \PiT x : \N . \PiT xs : \vecT ~ n . \vecT ~ (\snat~n)
+}
+
+Note that we typically write a type like $\PiT x : A . B$ as $A \to B$ if $x$ does not appear in $B$.
+With that in mind, we will actually write the type sof $\snat$, $\vecT$, and $\consT$ as:
+\eq{
+    \snat &: \N \to \N \\
+    \vecT &: \N \to \ty \\
+    \consT &: \PiT n : \N . \N \to \vecT ~ n \to \vecT ~ (\snat~n)
+}
+
+Which looks more like types that we're used to.
+The main attraction of dependent types is the ability for typechecking to catch bugs that we might make in our code, so we'll focus on typechecking rather than evaluation.
+Let's look at some well-typed terms:
+\eq{
+    0 &: \N \\
+    \snat ~ 0 &: \N \\
+    \snat ~ (\snat ~ 0) &: \N \\
+    \nilT &: \vecT ~ 0 \\
+    \consT ~ 0 ~ 0 ~ \nilT &: \vecT ~ (\snat ~ 0) \\
+}
+
+Note that the following term is \textbf{not} well-typed --- as we would expect.
+\eq{
+    \consT ~ 0 ~ 0 ~ (\consT ~ 0 ~ 0 ~ \nilT)
+}
+This is because $\consT ~ 0 ~ 0 ~ \nilT : \vecT ~ 1$, but it should be a $\vecT ~ 0$.
+Note that we can prove this is \textbf{not} well-typed by the following lemma:
+\begin{lemma}[Uniqueness of types]
+    If $\Gamma \proves M : A$ and $\Gamma \proves M : B$, then $A =_{\beta} B$.
+\end{lemma}
+
+We can see above that both $\vecT ~ 1$ and $\vecT ~ 0$ are already fully $\beta$-reduced, and they are not the same, so by the lemma, we \textbf{cannot} prove $\Gamma \proves \consT ~ 0 ~ 0 ~ \nilT : \vecT~0$.
+Technically this argument relies on confluence:
+\begin{lemma}[Confluence]
+    If $A =_{\beta} B$, then there is some $C$ so that $A \leadsto_{\beta} C$ and $B \leadsto_{\beta} C$.
+\end{lemma}
+But hopefully it is clear that this system is confluent.
+
+This shows us that our type system is useful for something---we can't write utter nonsense like this.
+However, you may note this nonsense (of cons-ing to vectors of improper length) has only been introduced because of dependent types in the first place.
+We can, however, define functions that can only be called with value arguments:
+\newcommand{\headT}{\texttt{head}}
+\eq{
+    \headT &: \PiT n : \N . \vecT~(\snat~n) \to \N
+}
+
+This function can only be called if we supply it a nonempty vector, which lets us actually eliminate the runtime check for this and, more importantly, the possibility of the error.
+For example, we can type:
+\eq{
+    \headT ~ 0 ~ (\consT~0~0~ \nilT) &: \N \\
+}
+
+But we \textbf{cannot} type $\headT ~ 0 ~ \nilT$ (or $\headT ~ n ~ \nilT$ for any $n \in \N$); again, this is because we cannot $\beta$-reduce $\vecT~0$ to $\vecT~(\snat~n)$ for any $n$.
+
+So this type system can save us from some errors, but we're missing a lot of things.
+For example, we can't really build up any actual terms or do any computation because of the limitations of the language.
+We also can't express things like induction, which is a second-order concept.
+But, with some simple extensions to the type system, we will be able to do this.
 
 \subsection{Pure Type Systems}
 
 In fact, the many variants of the $\lambda$-calculus (sometimes referred to as the $\lambda$-Cube), System $F$, System $F_{\omega}$, and so forth, can be formalized as a pure type system.
-In fact, we can also express Coq's underlying type syste, the Calculus of Inductive Constructions, as a Pure Type System.
+In fact, we can also express the Calculus of Inductive Constructions, the foundations of Coq's type syste, as a Pure Type System.
 
-First let's define a pure type system---in fact, we already almost did this above.
+First let's define a pure type system---in fact, we already almost did this above, so we'll just list the rules that changed.
+
+\begin{definition}
+    A \emph{pure type system} is a triple of sets $(\mathcal{S}, \mathcal{A}, \mathcal{R})$, called the \emph{sorts}, \emph{axioms}, and \emph{rules}, where $\mathcal{A} \subseteq \mathcal{S}^2$ and $\mathcal{R} \subseteq \mathcal{S}^3$, with the following rules:
+\end{definition}
+
+\begin{mathpar}
+    \inferrule*[right=Axiom]{ }{ \Gamma \proves r : s }
+    \tif (r,s) \in \mathcal{A}
+
+    \inferrule*[right=Pi]{
+        \Gamma \proves \tau :r
+        \and
+        \Gamma, x : \tau \proves \sigma : s
+    } { \Gamma \proves \PiT x : \tau . \sigma : t }
+    \tif (r,s,t) \in \mathcal{R}
+\end{mathpar}
 
 \subsection{The Calculus of Inductive Constructions}
 
