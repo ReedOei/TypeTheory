@@ -1,0 +1,426 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathpartir}
+\usepackage{xspace}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\tryS}{\textbf{\texttt{try}}\xspace}
+\newcommand{\Int}{\textbf{Int}\xspace}
+\newcommand{\ok}{\textbf{ok}\xspace}
+\newcommand{\catchS}{\textbf{\texttt{catch}}\xspace}
+\newcommand{\overbar}[1]{\mkern1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern1.5mu}
+\newcommand{\highlight}[1]{
+  \addtolength{\fboxrule}{.2ex}
+  \begin{block}{}
+    \begin{quote}#1
+    \end{quote}
+  \end{block}
+}
+
+\newtheorem*{conjecture}{Conjecture}
+\newtheorem*{proposition}{Proposition}
+
+\title{SIGPLAN}
+\subtitle{Type Theory (part $1$ of $n$): $\lambda$-calculus}
+\date{}
+
+\input{LaTeX/macros.tex}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Why Type Theory?: History}
+    \begin{itemize}
+        \item Historically: type theory was created to resolve issues in the foundations of mathematics
+        \item Russel's Paradox:
+            \[
+                A = \setbuild{x}{x \not\in x}
+            \]
+
+            If $A \in A$, then $A \not\in A$.
+            If $A \not\in A$, then $A \in A$.
+            Whoops.
+
+        \item Naive encoding with types:
+            \[
+                A : \texttt{set}~(\texttt{set}~T) = \setbuild{x : \texttt{set}~T}{x \not\in x}
+            \]
+
+            $A$ does not have type $\texttt{set}~T$, so there's no problem.\footnote{This is also what the axiom schema of separation (also known as restricted comprehension)) does in ZFC}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Why Type Theory?: Today}
+    \begin{itemize}
+        \item Type theory is still being studied as an alternate foundation for mathematics (HoTT).
+        \item But for now: turns out, type theory and its ideas are very useful in programming languages
+        \item We can show that our languages are type safe/satisfy other nice properties (e.g., programs terminate)
+        \item Also, it's fun(ctional)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item \textbf{The Untyped $\lambda$-calculus}
+        \item Untyped $\lambda$-calclus: Evaluation
+        \item Simple-typed $\lambda$-calculus
+        \item Simple-typed $\lambda$-calculus: Implementation
+        \item Simple-typed $\lambda$-calculus: Proofs
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The Untyped $\lambda$-Calculus}
+    \begin{itemize}
+        \item The simplest programming language is the (untyped) lambda calculus
+        \item It is Turing-complete (can compute anything a regular language can)
+        \item For our purposes, it provides a simple language to let us study the ideas of type theory---it is quite extendable
+        \item Programs consist of only expressions, of which there are three kinds\footnote{Pedants might insist I include parenthesized expressions.}: \emph{variables}, \emph{abstractions} (also called $\lambda$ functions), and \emph{applications}.
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    E & \bnfdef & $x$ & \bnfalt $\lambda x. E$ \bnfalt $E~E$
+\end{tabular}
+\end{frame}
+
+\begin{frame}{$\lambda$-Calculus: Examples}
+    \begin{itemize}
+        \item We typically think of $\lambda x. E$ as a function like $f(x) = E$ (or $x \mapsto E$)
+        \item So $(\lambda x. E)~E'$ ``means'' $f(E')$, where $f(x) = E$.
+        \item We read $E \to E'$ as $E$ \emph{reduces/evaluates/simplifies to} $E'$; it captures the notion of computation.
+    \end{itemize}
+
+    \small
+\begin{align*}
+    &(\lambda x. x)~y \to y \\
+    &((\lambda x. \lambda y. y)~a)~b \to (\lambda y. y)~b \to b \\
+    &(((\lambda x. \lambda y. y)~a)~(\lambda x. x))~b \to
+     ((\lambda y. y)~(\lambda x. x))~b \to
+     (\lambda x. x)~b \to b \\
+\end{align*}
+\end{frame}
+
+\begin{frame}{$\lambda$-Calculus: Some toy programs}
+    \begin{itemize}
+        \item The untyped $\lambda$-calculus is Turing-complete: we will show only a small subset of what you can do
+        \item Can encode everything: recursion, numbers, booleans, lists, etc.
+        \item Church encoding of booleans and common operations:
+    \end{itemize}
+\begin{align*}
+    \texttt{True} & := (\lambda x. \lambda y. x) \\
+    \texttt{False} & := (\lambda x. \lambda y. y) \\
+    \texttt{And} & := (\lambda b_1. \lambda b_2. b_1~b_2~\texttt{False}) \\
+    \texttt{Not} & := (\lambda b. b~\texttt{False}~\texttt{True}) \\
+    \texttt{Or} & := ?????
+\end{align*}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item The Untyped $\lambda$-calculus
+        \item \textbf{Untyped $\lambda$-calclus: Evaluation}
+        \item Simple-typed $\lambda$-calculus
+        \item Simple-typed $\lambda$-calculus: Implementation
+        \item Simple-typed $\lambda$-calculus: Proofs
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{$\lambda$-Calculus: Evaluating ``\texttt{And True False}''}
+\begin{align*}
+    \texttt{And}~\texttt{True}~\texttt{False} & = (\lambda b_1. \lambda b_2. b_1~b_2~\texttt{False}) (\lambda x. \lambda y. x) (\lambda z. \lambda w. w) \\
+                                        & \to (\lambda b_2. (\lambda x. \lambda y. x)~b_2~\texttt{False}) (\lambda z. \lambda w. w) \\
+                                        & \to ((\lambda x. \lambda y. x)~(\lambda z. \lambda w. w)~\texttt{False}) \\
+                                        & \to ((\lambda y. (\lambda z. \lambda w. w))~\texttt{False}) \\
+                                        & \to (\lambda z. \lambda w. w) \\
+                                        & = \texttt{False}
+\end{align*}
+\end{frame}
+
+\begin{frame}{$\lambda$-Calculus: Evaluation}
+    \begin{itemize}
+        \item We evaluate programs according to the three rules below (congruence, $\beta$-reduction, and $\alpha$-conversion)
+        \item $E[E'/x]$ means \emph{replace $x$ by $E'$ in $E$}; for example, $(x y x)[(\lambda z. z)/x] = (\lambda z. z) y (\lambda z. z)$.
+        \item Sometimes written $E[x \mapsto E']$, $E[x/E']$, $E[x := E']$, etc.
+    \end{itemize}
+
+    \begin{align*}
+        E_1~E_2              & \to E_1'~E_2 & \tif E_1 \to E_1' \\
+        (\lambda x. E_1) E_2 &\to_{\beta} E_1[E_2/x] \\
+        (\lambda x. E)       &\to_{\alpha} (\lambda y. E[y/x]) & \tif \text{$y$ is not free in $E$}
+    \end{align*}
+\end{frame}
+
+\begin{frame}{$\lambda$-Calculus: Evaluation (Inference rules)}
+    \begin{itemize}
+        \item These are usually presented via \emph{inference rules} (if everything on the top (\emph{premises}) is true, we can conclude the bottom (\emph{conclusion})).
+        \item We sometimes omit the line when there are no premises
+        \item The ``if $y$ is not free in $E$'' part on \textsc{$\alpha$-conv} is call a \emph{side-condition}.
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=Congr.]{
+        E_1 \to E_1'
+    }{ E_1~E_2 \to E_1'~E_2 }
+
+    \inferrule*[right=$\beta$-reduce]{
+    }{ (\lambda x. E) E' \to E[E'/x] }
+
+    \inferrule*[right=$\beta$-reduce-alt.]{}{ (\lambda x. E) E' \to E[E'/x] }
+
+    \inferrule*[right=$\alpha$-conv.]{
+    }{ (\lambda x. E) \to (\lambda y. E[y/x]) }
+    \tif \text{$y$ is not free in $E$}
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item The Untyped $\lambda$-calculus
+        \item Untyped $\lambda$-calclus: Evaluation
+        \item \textbf{Simple-typed $\lambda$-calculus}
+        \item Simple-typed $\lambda$-calculus: Implementation
+        \item Simple-typed $\lambda$-calculus: Proofs
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Simply-Typed $\lambda$-Calculus}
+    \begin{itemize}
+        \item We've made it $X$ minutes into ``type theory'' without talking about types in the $\lambda$-calculus
+        \item There are many type systems we can put on top of the untyped $\lambda$-calculus
+        \item The simplest (we need \texttt{bool} or something to have any well-formed types):
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & \texttt{bool} \bnfalt $\tau \to \tau$ \\
+    E & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$
+\end{tabular}
+\end{frame}
+
+\begin{frame}{The Type Rules}
+    \begin{itemize}
+        \item We write $x : \tau$ to mean ``$x$ has type $\tau$''.
+        \item We write $\Gamma \proves E : \tau$, read ``in the environment $\Gamma$, $E$ has type $\tau$''
+        \item $\Gamma$ is a \emph{type environment}: it's a list of pairs $x_1 : \tau_1, x_2 : \tau_2, \ldots, x_n : \tau_n$. \footnote{doesn't technically have to be finite, I guess}
+        \item In our simple language, we give one type rule for each sort of expression
+        \item The identity function on booleans:
+    \end{itemize}
+    \begin{align*}
+        (\lambda x : \texttt{bool}. x)
+    \end{align*}
+\end{frame}
+
+\begin{frame}{Checking Boolean Constants}
+    \begin{itemize}
+        \item We added boolean constnats, so we also need rules for them
+        \item Multiple ways to write this (the second is somewhat nicer, because there's fewer rules)
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=True]{
+    }{ \Gamma \proves \true : \texttt{bool} }
+
+    \inferrule*[right=False]{
+    }{ \Gamma \proves \false : \texttt{bool} }
+
+    \inferrule*[right=Bool]{
+        b \in \curlys{\true, \false}
+    }{ \Gamma \proves b : \texttt{bool} }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{The \textsc{Var} Rule}
+    \begin{itemize}
+        \item To know what type a variable is, it must be in the type environment
+        \item Then we simply use whatever type the environment says the variable has
+        \item This let's us reject programs that don't declare all their variables
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=Var]{
+    }{ \Gamma, x : \tau \proves x : \tau }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{The \textsc{App} Rule}
+    \begin{itemize}
+        \item The \textsc{App} rule ensures that we only apply functions to arguments (e.g., we don't do $\texttt{true}(x)$).
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=App]{
+        \Gamma \proves f : \tau_1 \to \tau_2
+        \\
+        \Gamma \proves x : \tau_1
+    }{ \Gamma \proves f~x : \tau_2 }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{The \textsc{Abs} Rule}
+    \begin{itemize}
+        \item The \textsc{Abs} rule ensures $\lambda$-abstractions are well-typed: the \emph{body} can use the variable $x$ as though it were of type $\tau$
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=Abs]{
+        \Gamma, x : \tau_1 \proves E : \tau_2
+    }{ \Gamma \proves (\lambda x : \tau_1. E) : \tau_1 \to \tau_2 }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{Typechecking a Program}
+    \begin{itemize}
+        \item Below is a \emph{proof tree}, showing that a program is \emph{well-typed}\footnote{it's hard to fit anything bigger on one slide}
+    \end{itemize}
+
+\begin{minipage}{\dimexpr\textwidth+3em\relax}
+\small
+\begin{mathpar}
+    \inferrule*[right=App]{
+        \inferrule*[right=Abs]{
+            \inferrule*[right=Var]{
+            }{ x : \texttt{bool} \proves x : \texttt{bool} }
+        }{ \emptyset \proves (\lambda x : \texttt{bool}. \true) : \texttt{bool} \to \texttt{bool} }
+        \\
+        \inferrule*[right=Bool]{
+        }{ \emptyset \proves \false : \texttt{bool} }
+    }{ \emptyset \proves (\lambda x : \texttt{bool}. \true)~\false : \texttt{bool} }
+\end{mathpar}
+\end{minipage}%
+\end{frame}
+
+\begin{frame}{Benefits of Formalization}
+    \begin{itemize}
+        \item We can now prove theorems about the language
+        \item There is now an unambiguous definition what the language is and what it does: therefore, we can say whether an implementation is correct or not.
+        \item Helps with the design process a lot!
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Notes about simply-typed $\lambda$-calculus}
+    \begin{itemize}
+        \item The simply-typed $\lambda$-calculus is \textbf{weaker} (much weaker) than the untyped version
+        \item We reject many valid (but also many invalid!) programs
+        \item To get more valid programs, we need a more complicated type system
+        \item In exchange, we get nice guarantees about our programs (i.e., strong normalization)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item The Untyped $\lambda$-calculus
+        \item Untyped $\lambda$-calclus: Evaluation
+        \item Simple-typed $\lambda$-calculus
+        \item \textbf{Simple-typed $\lambda$-calculus: Implementation}
+        \item Simple-typed $\lambda$-calculus: Proofs
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Implementation of a typechecker}
+    \begin{itemize}
+        \item Let's implement these rules in Haskell.
+        \item First we define types representing typons (\texttt{Ty}) and expressions (\texttt{Expr}) in our language
+        \item Then we define a function \texttt{check}, such that $\Gamma \proves e : \tau$ if and only if \lstinline[language=haskell, basicstyle=\small\ttfamily]{check gamma e = Just tau}
+        \item \emph{Ill-typed} expressions (e.g., $\lambda x : \texttt{bool} . y$) will give us \lstinline[language=haskell, basicstyle=\small\ttfamily]{check gamma e = Nothing}
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+data Ty = B | Func Ty Ty
+data Expr = T | F | Var String
+          | App Expr Expr | Abs String Ty Expr
+type Env = String -> Maybe Ty
+check :: Env -> Expr -> Maybe Ty
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Implementation: Constants and Variables}
+    \begin{itemize}
+        \item First the \textsc{Bool} and \textsc{Var} rules:
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+check gamma T = Just bool
+check gamma F = Just bool
+check gamma (Var x) = gamma x
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Implementation: Functions}
+    \begin{itemize}
+        \item Now for the \textsc{App} and \textsc{Abs} rules:
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+check gamma (App f x) =
+    case (check gamma f, check gamma x) of
+        (Just (Func t1 t2), Just t3) ->
+            if t1 == t3 then Just t2
+            else Nothing
+        _ -> Nothing
+check gamma (Abs x t body) =
+  let newGamma = (\y -> if x == y then Just t
+                        else gamma y)
+  in case check newGamma body of
+      Just t2 -> Just (Func t t2)
+      Nothing -> Nothing
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item The Untyped $\lambda$-calculus
+        \item Untyped $\lambda$-calclus: Evaluation
+        \item Simple-typed $\lambda$-calculus
+        \item Simple-typed $\lambda$-calculus: Implementation
+        \item \textbf{Simple-typed $\lambda$-calculus: Proofs}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Proving Type Safety}
+    \begin{itemize}
+        \item Typically we split proving type safety into two parts: \emph{progress} and \emph{preservation}
+        \item Informally, type safety means ``well-typed programs don't get stuck.''
+    \end{itemize}
+
+\begin{theorem}[Progress]
+    Let $E$ be a closed expression (i.e., no free variables).
+    If $\Gamma \proves E : \tau$, then either $E$ is a value (i.e, $E = \true$, $E = \false$, or $E = \lambda x. E$), or there is some $E'$ such that $E \to E'$.
+\end{theorem}
+
+\begin{theorem}[Preservation]
+    If $\Gamma \proves E : \tau$ and $E \to E'$, then $\Gamma \proves E' : \tau$.\footnote{Here we use the same $\tau$ for both; in some languages this may not hold (e.g., because of subtyping)}
+\end{theorem}
+\end{frame}
+
+\end{document}
+

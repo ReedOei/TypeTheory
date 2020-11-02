@@ -1,0 +1,167 @@
+fmod SYSTEM-F is
+    protecting QID .
+    protecting NAT .
+    protecting CONVERSION .
+
+    sort MultiSet .
+    subsort Qid < MultiSet .
+
+    op mt : -> MultiSet [ctor] .
+    op _;_ : MultiSet MultiSet -> MultiSet [ctor assoc comm id: mt] .
+
+    sorts Expr TyVar Type .
+    subsort Qid < Expr .
+    subsort TyVar < Type .
+
+    ops alpha beta gamma : -> TyVar [ctor] .
+    op _' : TyVar -> TyVar [ctor] .
+
+    op _->_ : Type Type -> Type [ctor prec 20 gather (e E)] .
+    op forall_._ : TyVar Type -> Type [ctor prec 10] .
+
+    op lambda_:_._ : Qid Type Expr -> Expr [ctor prec 10] .
+    op __ : Expr Expr -> Expr [ctor] .
+    op /\_._ : TyVar Expr -> Expr [ctor prec 10] .
+    op _[_] : Expr Type -> Expr [ctor] .
+
+    vars X Y Z : Qid .
+    vars Xs Ys : MultiSet .
+    vars A B C : TyVar .
+    vars E E1 E2 : Expr .
+    vars T T1 T2 : Type .
+    vars N M : Nat .
+
+    op _in_ : Qid MultiSet -> Bool .
+    eq X in (X ; Xs) = true .
+    eq X in Ys = false [owise] .
+
+    op freshVar : MultiSet -> Qid .
+    eq freshVar(Xs) = freshVar(0, Xs) .
+    op freshVar : Nat MultiSet -> Qid .
+    eq freshVar(N, Xs) =
+        if qid(string(N, 10)) in Xs then
+            freshVar(N + 1, Xs)
+        else
+            qid(string(N, 10))
+        fi .
+
+    op varsOf : Expr -> MultiSet .
+    eq varsOf(X) = X .
+    eq varsOf(lambda X : T . E1) = X ; varsOf(E1) .
+    eq varsOf(E1 E2) = varsOf(E1) ; varsOf(E2) .
+    eq varsOf(/\ A . E) = varsOf(E) .
+    eq varsOf(E[ T ]) = varsOf(E) .
+
+    op alphaConv : Qid Expr -> Expr .
+    eq alphaConv(Z, lambda X : T . E1) = lambda Z : T . (E1[Z / X]) .
+
+    op _[_/_] : Expr Expr Qid -> Expr .
+    eq X[E / Y] = if X == Y then E else X fi .
+    eq (lambda X : T . E1)[E2 / Y] =
+        if not(X in (Y ; varsOf(E2))) then
+            lambda X : T . (E1[E2 / Y])
+        else
+            alphaConv(freshVar(X ; Y ; varsOf(E1) ; varsOf(E2)), lambda X : T . E1) [E2 / Y]
+        fi .
+    eq (E1 E2)[E / X] = (E1[E / X]) (E2[E / X]) .
+    eq (/\ A . E1)[ E2 / X ] = /\ A . (E1[E2 / X]) .
+    eq (E1[T])[ E2 / X ] = (E1[E2 / X])[T] .
+
+    op _[_/_] : Expr Type TyVar -> Expr .
+    eq X[T / A] = X .
+    eq (lambda X : T1 . E)[T2 / A] = lambda X : T1[T2 / A] . (E[T2 / A]) .
+    eq (E1 E2)[T / A] = (E1[T / A]) (E2[T / A]) .
+    eq (/\ A . E)[ T / B ] = /\ A . (E[T / B]) .
+    eq (E[T1])[ T2 / A ] = (E[T2 / A])[ T1[T2 / A] ] .
+
+    op _[_/_] : Type Type TyVar -> Type .
+    eq A[T / B] = if A == B then T else A fi .
+    eq (forall A . T1)[T2 / B] = forall A . (T1[T2 / B]) .
+    eq (T1 -> T2)[T / A] = (T1[T / A]) -> (T2[T / A]) .
+endfm
+
+mod SYSTEM-F-EVAL is
+    extending SYSTEM-F .
+
+    vars X Y Z : Qid .
+    vars A B C : TyVar .
+    vars E E1 E2 : Expr .
+    vars T T1 T2 : Type .
+
+    rl [beta-red]: (lambda X : T . E1) E2 => E1[E2 / X] .
+    rl [ty-app]: (/\ A . E) [ T ] => E[T / A] .
+
+    op bool : -> Type .
+    eq bool = forall alpha . alpha -> alpha -> alpha .
+
+    ops TRUE FALSE : -> Expr .
+    eq TRUE = /\ alpha . lambda 'x : alpha . lambda 'y : alpha . 'x .
+    eq FALSE = /\ alpha . lambda 'x : alpha . lambda 'y : alpha . 'y .
+
+    op AND : -> Expr .
+    eq AND = lambda 'b1 : bool .
+             lambda 'b2 : bool . ((('b1 [ bool ]) 'b2) FALSE) .
+
+    op nat : -> Type .
+    eq nat = forall beta . (beta -> beta) -> beta -> beta .
+
+    op zero : -> Expr .
+    eq zero = /\ beta . lambda 's : beta -> beta . lambda 'z : beta . 'z .
+
+    op succ : -> Expr .
+    eq succ = lambda 'n : forall beta . (beta -> beta) -> beta -> beta .
+              /\ gamma . lambda 's : gamma -> gamma . lambda 'z : gamma . ('s ((('n [ gamma ]) 's) 'z)) .
+
+    op add : -> Expr .
+    eq add = lambda 'n : forall beta . (beta -> beta) -> beta -> beta .
+             lambda 'm : forall beta . (beta -> beta) -> beta -> beta .
+             /\ beta . lambda 's : beta -> beta . lambda 'z : beta  . ((('n [ beta ]) 's) ((('m [ beta ]) 's) 'z)) .
+
+    vars N M : Nat .
+
+    op fromNat : Nat -> Expr .
+    eq fromNat(0) = zero .
+    eq fromNat(s(N)) = succ fromNat(N) .
+endm
+
+rewrite in SYSTEM-F-EVAL : (/\ alpha . lambda 'x : alpha . 'x) [ bool ] TRUE .
+rewrite in SYSTEM-F-EVAL : succ (succ zero) .
+
+--- set trace on .
+--- set trace eq off .
+
+rewrite in SYSTEM-F-EVAL : (add fromNat(3)) fromNat(6) .
+
+rewrite in SYSTEM-F-EVAL : ((AND TRUE) ((AND FALSE) TRUE)) .
+
+mod SYSTEM-F-TYPECHECK is
+    extending SYSTEM-F .
+
+    sorts TyEnv .
+    op nil : -> TyEnv [ctor] .
+    op _:_ : Qid Type -> TyEnv [ctor] .
+    op _,_ : TyEnv TyEnv -> TyEnv [ctor comm assoc id: nil] .
+
+    op _|-_ : TyEnv Expr -> Type [ctor] .
+
+    vars Gamma : TyEnv .
+    vars X Y Z : Qid .
+    vars A B C : TyVar .
+    vars E E1 E2 : Expr .
+    vars T T1 T2 : Type .
+
+    rl [var]: (Gamma, (X : T)) |- X => T .
+    crl [abs]: Gamma |- (lambda X : T1 . E2) => T1 -> T2
+        if (Gamma, (X : T1)) |- E2 => T2 .
+    crl [app]: Gamma |- E1 E2 => T2
+        if Gamma |- E2 => T1 /\
+           Gamma |- E1 => T1 -> T2 .
+    crl [ty-app]: Gamma |- E[T2] => T1[T2 / A]
+        if Gamma |- E => forall A . T1 .
+    crl [ty-abs]: Gamma |- /\ A . E => forall A . T
+        if Gamma |- E => T .
+endm
+
+rewrite in SYSTEM-F-TYPECHECK : nil |- (/\ alpha . lambda 'x : alpha . 'x) .
+rewrite in SYSTEM-F-TYPECHECK : nil |- (/\ alpha . /\ beta . lambda 'x : alpha . lambda 'y : beta . 'x) .
+

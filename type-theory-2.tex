@@ -1,0 +1,735 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{soul}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathpartir}
+\usepackage{xspace}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\tryS}{\textbf{\texttt{try}}\xspace}
+\newcommand{\Int}{\textbf{Int}\xspace}
+\newcommand{\ok}{\textbf{ok}\xspace}
+\newcommand{\catchS}{\textbf{\texttt{catch}}\xspace}
+
+\newcommand{\inl}{\textbf{\texttt{inl}}\xspace}
+\newcommand{\inr}{\textbf{\texttt{inr}}\xspace}
+\newcommand{\case}{\textbf{\texttt{case}}\xspace}
+
+\newcommand{\bool}{\textbf{Bool}}
+\newcommand{\fin}{\textbf{Fin}}
+
+\newtheorem*{conjecture}{Conjecture}
+\newtheorem*{proposition}{Proposition}
+
+\title{SIGPLAN}
+\subtitle{Type Theory (part $2$ of $n$): Proofs, System $F$}
+\date{}
+
+\input{LaTeX/macros.tex}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Recap}
+    \begin{itemize}
+        \item Last time, we introduced type theory, the untyped $\lambda$-calculus, and the simply-typed $\lambda$-calculus
+        \item We can show that our languages are type safe/satisfy other nice properties (e.g., programs terminate)
+        \item But the simply-typed $\lambda$-calculus was too weak for our purposes
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item \textbf{Simple-typed $\lambda$-calculus: Recap}
+        \item Simple-typed $\lambda$-calculus: Extensions
+        \item Algebraic Data Types (briefly)
+        \item Curry-Howard Isomorphism (briefly)
+        \item Simple-typed $\lambda$-calculus: Proofs
+        \item System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Recap: Simply-Typed $\lambda$-Calculus: Syntax, Evaluation}
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & \texttt{bool} \bnfalt $\tau \to \tau$ \\
+    E & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$
+\end{tabular}
+
+\begin{mathpar}
+    \inferrule*[right=Congr]{
+        E_1 \to E_1'
+    }{ E_1~E_2 \to E_1'~E_2 }
+
+    \inferrule*[right=$\beta$-reduce]{
+    }{ (\lambda x : \tau. E) E' \to E[E'/x] }
+
+    \inferrule*[right=$\alpha$-conv.]{
+    }{ (\lambda x. E) \to (\lambda y. E[y/x]) }
+    \tif \text{$y$ is not in $E$}
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{Recap: Simply-Typed $\lambda$-Calculus: Type Rules}
+\begin{mathpar}
+    \inferrule*[right=Bool]{
+        b \in \curlys{\true, \false}
+    }{ \Gamma \proves b : \texttt{bool} }
+
+    \inferrule*[right=Var]{
+    }{ \Gamma, x : \tau \proves x : \tau }
+
+    \inferrule*[right=App]{
+        \Gamma \proves f : \tau_1 \to \tau_2
+        \\
+        \Gamma \proves x : \tau_1
+    }{ \Gamma \proves f~x : \tau_2 }
+
+    \inferrule*[right=Abs]{
+        \Gamma, x : \tau_1 \proves E : \tau_2
+    }{ \Gamma \proves (\lambda x : \tau_1. E) : \tau_1 \to \tau_2 }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item Simple-typed $\lambda$-calculus: Recap
+        \item \textbf{Simple-typed $\lambda$-calculus: Extensions}
+        \item Algebraic Data Types (briefly)
+        \item Curry-Howard Isomorphism (briefly)
+        \item Simple-typed $\lambda$-calculus: Proofs
+        \item System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Extensions of Simply-Typed $\lambda$-calculus}
+    \begin{itemize}
+        \item We can add many interesting features to the $\lambda$-calculus: we'll do natural numbers, product types, and sum types
+        \item We need to extend the syntax
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\ldots$ \bnfalt $\N$ \\
+    E & \bnfdef & $\ldots$ \bnfalt $n$ \bnfalt $E + E$
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Evaluation for Natural Numbers}
+    \begin{itemize}
+        \item We write $n +_{\N} m$ to mean addition in the ``actual'' natural numbers
+        \item You can also think of this as being some hardware implementation of addition: the important thing is it's a single number, not the abstract syntax representation addition of two expressions
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=Add-Congr-L]{
+            E_1 \to E_1'
+        }{ E_1 + E_2 \to E_1' + E_2 }
+
+        \inferrule*[right=Add-Congr-R]{
+            E_2 \to E_2'
+        }{ E_1 + E_2 \to E_1 + E_2' }
+
+        \inferrule*[right=Add]{
+        }{ n + m \to n +_{\N} m }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Typing for Natural Numbers}
+    \begin{mathpar}
+        \inferrule*[right=T-Nat]{
+            n \in \N
+        }{ \Gamma \proves n : \N }
+
+        \inferrule*[right=T-Add]{
+            \Gamma \proves E_1 : \N
+            \\
+            \Gamma \proves E_2 : \N
+        }{ \Gamma \proves (E_1 + E_2) : \N }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Extensions of Simply-Typed $\lambda$-calculus: Product types}
+    \begin{itemize}
+        \item Product types are basically just pairs; records/structs are also product types (but with labels instead of left/right)
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\ldots$ \bnfalt $\tau \times \tau$ \\
+    E & \bnfdef & $\ldots$ \bnfalt $(E,E)$ \bnfalt $E_\ell$ \bnfalt $E_r$
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Evaluation for Product Types}
+    \begin{itemize}
+        \item Because there's no side-effects in our language, we actually don't need the latter two rules
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=Pair-Proj-L]{
+        }{ (E_1, E_2)_\ell \to E_1 }
+
+        \inferrule*[right=Pair-Proj-R]{
+        }{ (E_1, E_2)_r \to E_1 }
+
+        \inferrule*[right=Pair-Congr-L]{
+            E_1 \to E_1'
+        }{ (E_1, E_2) \to (E_1', E_2) }
+
+        \inferrule*[right=Pair-Congr-R]{
+            E_2 \to E_2'
+        }{ (E_1, E_2) \to (E_1, E_2') }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Typing for Product Types}
+    \begin{mathpar}
+        \inferrule*[right=T-Pair]{
+            ??????
+        }{ \Gamma \proves (E_1, E_2) : \tau_1 \times \tau_2 }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Typing for Product Types}
+    \begin{mathpar}
+        \inferrule*[right=T-Pair]{
+            \Gamma \proves E_1 : \tau_1
+            \\
+            \Gamma \proves E_2 : \tau_2
+        }{ \Gamma \proves (E_1, E_2) : \tau_1 \times \tau_2 }
+
+        \inferrule*[right=T-Proj-L]{
+            \Gamma \proves E : \tau_1 \times \tau_2
+        }{ \Gamma \proves E_\ell : \tau_1 }
+
+        \inferrule*[right=T-Proj-R]{
+            \Gamma \proves E : \tau_1 \times \tau_2
+        }{ \Gamma \proves E_r : \tau_2 }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{Extensions of Simply-Typed $\lambda$-calculus: Sum types}
+    \begin{itemize}
+        \item Sum types are basically alternatives, like more powerful enums
+        \item Saying $E : \tau_1 + \tau_2$ means essentially that either $E$ is of type $\tau_1$ its it's of type $\tau_2$.
+        \item The names $\inl$ and $\inr$ are short for ``left injection'' and ``right injection'' ($\inl : \tau_1 \to \tau_1 + \tau_2$ and $\inr : \tau_2 \to \tau_1 + \tau_2$)
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\ldots$ \bnfalt $\tau + \tau$ \\
+    E & \bnfdef & $\ldots$ \bnfalt $\inl~E$ \bnfalt $\inr~E$ \bnfalt $\case(E)~\inl~x \mapsto E ; \inr~x \mapsto E$
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Evaluation for Sum Types}
+    \begin{itemize}
+        \item Because there's no side-effects in our language, we actually don't need the latter two rules
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=Case-Congr]{
+            E \to E'
+        }{ (\case(E)~\inl~x \mapsto E_1 ; \inr~y \mapsto E_2) \\\to (\case(E')~\inl~x \mapsto E_1 ; \inr~y \mapsto E_2) }
+
+        \inferrule*[right=Case-L]{
+        }{ (\case(\inl~E)~\inl~x \mapsto E_1 ; \inr~y \mapsto E_2) \to E_1[E/x] }
+
+        \inferrule*[right=Case-R]{
+        }{ (\case(\inr~E)~\inl~x \mapsto E_1 ; \inr~y \mapsto E_2) \to E_2[E/y] }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Typing for Sum Types}
+    \begin{itemize}
+        \item Something to note here is that these type rules are not deterministic: they can match in many ways for a single term
+        \item There's no way to know what the other type in the sum is
+        \item We could fix this by adding annotations (e.g., $\inl_{\tau_2}~E : \tau_1 + \tau_2$)
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=T-In-L]{
+            \Gamma \proves E : \tau_1
+        }{ \Gamma \proves \inl~E : \tau_1 + \tau_2 }
+
+        \inferrule*[right=T-In-R]{
+            \Gamma \proves E : \tau_2
+        }{ \Gamma \proves \inr~E : \tau_1 + \tau_2 }
+
+        \inferrule*[right=T-Case]{
+            \Gamma \proves E : \tau_1 + \tau_2
+            \\
+            \Gamma, x : \tau_1 \proves E_1 : \tau
+            \\
+            \Gamma, y : \tau_2 \proves E_2 : \tau
+        }{ \Gamma \proves (\case(E)~\inl~x \mapsto E_1; \inr~y \mapsto E_2) : \tau }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item Simple-typed $\lambda$-calculus: Recap
+        \item Simple-typed $\lambda$-calculus: Extensions
+        \item \textbf{Algebraic Data Types (briefly)}
+        \item Curry-Howard Isomorphism (briefly)
+        \item Simple-typed $\lambda$-calculus: Proofs
+        \item System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Algebraic (?) Data Types}
+    \begin{itemize}
+        \item Sometimes these types are called ``algebraic types'': this is because in a certain sense, these types form an algebraic structure (a semiring\footnote{also called a rng because it doesn't have \emph{inverses}.})
+        \item We consider two types $\tau$ and $\sigma$ to be the same if there is a type-isomorphism: functions $f : \tau \to \sigma$ and $g : \sigma \to \tau$ such that $g \after f = \id{\tau}$ and $f \after g = \id{\sigma}$
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+f : Bool -> Maybe ()
+f True = Just ()
+f False = Nothing
+g : Maybe () -> Bool
+g (Just ()) = True
+g Nothing = False
+\end{lstlisting}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Algebraic Data Types: Examples}
+    \begin{itemize}
+        \item Define the type $\fin~n = \overbrace{\id{} + \cdots + \id{}}^{n~\text{times}}$.
+        \item We have $\bool \times \bool \iso \fin~4$.
+        \item We have $\id{} + \id{} \iso \fin~2$ (previous slide)
+        \item Exponential types: the type of functions $A \to B$ is called an exponential type (sometimes written $B^A$)
+        \item Then $\id{}^{\bool} \iso \id{}$
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+f : Bool -> ()
+f b = ()
+g : () -> (Bool -> ())
+g () = \b -> ()
+\end{lstlisting}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Algebraic Data Types: Some Nonsense (sort of)}
+    \begin{itemize}
+        \item Let's take a minute to think about lists
+        \item Lists are kind of like $() + A + A^2 + A^3 + \cdots$ (either empty, one element, two elements, etc.)
+        \[
+            \texttt{List}~A = \sum_{i=0}^{\infty} A^i
+        \]
+
+    \item So then $\texttt{List}~A = \frac{1}{1 - A}$, or $\texttt{List}~A = 1 + A \times (\texttt{List}~A)$
+    \item Hmmmm...
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+data List a = Nil | Cons a (List a)
+\end{lstlisting}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item Simple-typed $\lambda$-calculus: Recap
+        \item Simple-typed $\lambda$-calculus: Extensions
+        \item Algebraic Data Types (briefly)
+        \item \textbf{Curry-Howard Isomorphism (briefly)}
+        \item Simple-typed $\lambda$-calculus: Proofs
+        \item System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Curry-Howard Isomorphism}
+    \begin{itemize}
+        \item In addition to viewing these operations as \textbf{algebraic}, we can also view them as \textbf{logical}
+        \item Here $A \times B$ means ``$A$ \textbf{and} $B$'', $A + B$ means ``$A$ \textbf{or} $B$'', and $A \to B$ means ``$A$ \textbf{implies} $B$''
+        \item So we can encode basic propositional logic in types.
+            ``If $A$ implies $B$ and $B$ implies $C$, then $A$ implies $C$''
+            \[
+                ((A \to B) \times (B \to C)) \to (A \to C)
+            \]
+        \item Writing a term of some type is equivalent to giving a proof:
+            \[
+                \lambda p : (A \to B) \times (B \to C). \lambda x : A. p_r~(p_\ell~x)
+            \]
+        \item Lots more to say about this later (this is basically how proof assistants work)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item Simple-typed $\lambda$-calculus: Recap
+        \item Simple-typed $\lambda$-calculus: Extensions
+        \item Algebraic Data Types (briefly)
+        \item Curry-Howard Isomorphism (briefly)
+        \item \textbf{Simple-typed $\lambda$-calculus: Proofs}
+        \item System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Proving Type Safety}
+    \begin{itemize}
+        \item Typically we split proving type safety into two parts: \emph{progress} and \emph{preservation}
+        \item Informally, type safety means ``well-typed programs don't get stuck.''
+    \end{itemize}
+
+\begin{theorem}[Progress]
+    Let $E$ be a closed expression (i.e., no free variables).
+    If $\Gamma \proves E : \tau$, then either $E$ is a value (i.e, $E = \true$, $E = \false$, or $E = \lambda x. E$), or there is some $E'$ such that $E \to E'$.
+\end{theorem}
+
+\begin{theorem}[Preservation]
+    If $\Gamma \proves E : \tau$ and $E \to E'$, then $\Gamma \proves E' : \tau$.\footnote{Here we use the same $\tau$ for both; in some languages this may not hold (e.g., because of subtyping)}
+\end{theorem}
+\end{frame}
+
+\begin{frame}{Recall: Proof Trees}
+
+\begin{minipage}{\dimexpr\textwidth+3em\relax}
+\small
+\begin{mathpar}
+    \inferrule*[right=App]{
+        \inferrule*[right=Abs]{
+            \inferrule*[right=Bool]{
+            }{ x : \texttt{bool} \proves \true : \texttt{bool} }
+        }{ \emptyset \proves (\lambda x : \texttt{bool}. \true) : \texttt{bool} \to \texttt{bool} }
+        \\
+        \inferrule*[right=Bool]{
+        }{ \emptyset \proves \false : \texttt{bool} }
+    }{ \emptyset \proves (\lambda x : \texttt{bool}. \true)~\false : \texttt{bool} }
+\end{mathpar}
+\end{minipage}
+\end{frame}
+
+\begin{frame}{Empty Slide for Scratch Work}
+\end{frame}
+
+\begin{frame}{Proving Type Safety}
+\begin{theorem}[Progress]
+    Let $E$ be a closed expression (i.e., no free variables).
+    If $\Gamma \proves E : \tau$, then either $E$ is a value (i.e, $E = \true$, $E = \false$, or $E = \lambda x. E$), or there is some $E'$ such that $E \to E'$.
+\end{theorem}
+\begin{proof}
+    We proceed by induction on the derivation of $\Gamma \proves E : \tau$.
+
+    \textbf{Case \textsc{Bool}}: In this case, $E \in \curlys{\true, \false}$.
+    Then $E$ is a value.
+
+    \textbf{Case \textsc{Var}}: In this case, $E = x$ for some variable $x$.
+    Then $E$ is not closed, which is a contradiction.
+\end{proof}
+\end{frame}
+
+\begin{frame}{Proving Type Safety: Continued}
+\begin{proof}
+    \textbf{Case \textsc{App}}: In this case, $E = E_1~E_2$ for some expressions $E_1$ and $E_2$.
+
+    Then by inversion of the typing derivation, we have $\Gamma \proves E_1 : \tau_1 \to \tau_2$ and $\Gamma \proves E_2 : \tau_1$.
+    Then by the induction hypothesis, we have either $E_1$ is a value, or $E_1 \to E_1'$ for some expression $E_1'$.
+
+    If $E_1$ is a value, then ???? % $E_1 = \lambda x : \tau_1. E'$, and by \textsc{$\beta$-reduce}, we have $(\lambda x : \tau. E')~E_2 \to E'[E_2/x]$. \footnote{technically, we may need to $\alpha$-convert here.}
+
+    If $E_1$ is not a value, then ???? % $E_1 \to E_1'$, and by the congruence rule, $E_1~E_2 \to E_1'~E_2$.
+
+    \textbf{Case \textsc{Abs}}: In this case, $E = \lambda x : \tau. E'$.
+    Then ???? % $E$ is a value.
+
+\end{proof}
+\end{frame}
+
+\begin{frame}{Proving Type Safety: Recap}
+    \begin{itemize}
+        \item Why did we do that?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Proving Type Safety: Recap}
+    \begin{itemize}
+        \item Why did we do that?
+        \item So you understand why I keep mentioning reducing the number of cases to check (even worse if we did it with all the product/sum type rules!)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Proving Type Safety: Recap}
+    \begin{itemize}
+        \item Why did we do that?
+        \item \st{So you understand why I keep mentioning reducing the number of cases to check}
+        \item To show that our language definition is ``sensible'':
+            \begin{itemize}
+                \item We didn't forget any evaluation rules
+                \item Typechecking guarantees that our programs run successfully
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Outline}
+    \begin{itemize}
+        \item Simple-typed $\lambda$-calculus: Recap
+        \item Simple-typed $\lambda$-calculus: Extensions
+        \item Algebraic Data Types (briefly)
+        \item Curry-Howard Isomorphism (briefly)
+        \item Simple-typed $\lambda$-calculus: Proofs
+        \item \textbf{System $F$}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{System $F$}
+    \begin{itemize}
+        \item Almost Haskell's type system (\textbf{almost} System $F_\omega$ \footnote{As the name suggests, it builds heavily on System $F$})
+        \item Basically, it's simply-typed $\lambda$-calculus, but with \emph{parametric polymorphism}
+        \item Below is the identity function in Haskell\footnote{You technically need \lstinline[language=haskell, basicstyle=\small\ttfamily]{-XExplicitForAll}}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+id : forall a. a -> a
+id x = x
+\end{lstlisting}
+        \item And in System $F$:
+        \begin{align*}
+            \text{id} &: \forall \alpha. \alpha \to \alpha \\
+            \text{id} &= (\Lambda \alpha. \lambda x : \alpha. x)
+        \end{align*}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{System $F$ Syntax}
+    \begin{itemize}
+        \item System $F$ is again based on the $\lambda$-calculus, but with a much more powerful type system
+        \item We've dropped the built-in types altogether, because we don't need them (we also don't need products or sum types)
+        \item We use $\alpha$, $\beta$, $\gamma$, etc. for \emph{type variables}
+    \end{itemize}
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\tau \to \tau$ \bnfalt $\forall \alpha. \tau$ \\
+    E & \bnfdef & $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$ \bnfalt $\Lambda \alpha. E$ \bnfalt $E[\tau]$
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{System $F$ Evaluation}
+    \begin{itemize}
+        \item The evaluation rules are the same as before, except we've added one new rule to deal with the new expressions
+        \item We overload the substitution syntax to allow substituting for type variables
+        \item Technically, we only need to do the substitution so the proof works---we can otherwise erase types at runtime if we cared about efficiency
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=App-Ty]{
+        }{ (\Lambda \alpha. E)[\tau] \to E[\tau/\alpha] }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F$ Typechecking}
+    \begin{itemize}
+        \item We only \textbf{need} two new type rules
+        \item However, we add new \emph{type formation} rules for educational purposes (e.g., to disallow $\lambda x : \alpha. x$ without binding $\alpha$)
+        \item Extend type contexts to also be able to contain type variables
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=Var]{
+            \Gamma \proves \tau
+        }{ \Gamma, x : \tau \proves x : \tau }
+
+        \inferrule*[right=T-Abs]{
+            \Gamma, \alpha \proves E : \tau
+        }{ \Gamma \proves (\Lambda \alpha. E) : \forall \alpha. \tau }
+
+        \inferrule*[right=T-App]{
+            \Gamma \proves E : \forall \alpha. \sigma
+        }{ \Gamma \proves E[\tau] : \sigma[\tau / \alpha] }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F$ Typechecking: Type Formation}
+    \begin{mathpar}
+        \inferrule*[right=T-Ok-Var]{
+        }{ \Gamma, \alpha \proves \alpha }
+
+        \inferrule*[right=T-Ok-Abs]{
+            \Gamma \proves \tau_1
+            \\
+            \Gamma \proves \tau_2
+        }{ \Gamma \proves \tau_1 \to \tau_2 }
+
+        \inferrule*[right=T-Ok-Forall]{
+            \Gamma, \alpha \proves \tau
+        }{ \Gamma \proves \forall \alpha. \tau }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{Comments on System $F$}
+    \begin{itemize}
+        \item System $F$ actually is in some sense more powerful than default Haskell because we can put $\forall$ anywhere.
+            \begin{itemize}
+                \item Without extensions, \lstinline[language=haskell, basicstyle=\small\ttfamily]{forall} is only allowed at the ``top'' of types, because it makes type inference possible.
+            \end{itemize}
+        \item Type inference for System $F$ is undecidable\footnote{without annotations}.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Comments on System $F$: Free Theorems}
+    \begin{itemize}
+        \item You may have heard of free theorems\footnote{If you read the paper you'll see it's not exactly ``free''. See: Philip Wadler. "Theorems for free!" FPCA (1989).}
+        \item This refers to the idea that polymorphic types are so strong that just knowing the type of a (closed) term can tell you its bevahior
+        \item For example:
+            \begin{itemize}
+                \item If $f : \forall \alpha. \alpha \to \alpha$, then $f \equiv \Lambda \alpha. \lambda x : \alpha. x$.
+                \item If $f : \forall \alpha. \forall \beta. \alpha \times \beta \to \alpha$, $g : A \to B$, and $h : C \to D$ then $g \after f[A][C] = f[A][C] \after (g \times h)$.
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+fst : (a,c) -> a
+g : a -> b
+h : c -> d
+(x, y) : (a, c)
+-- Then
+g (fst (x, y)) = fst (g x, h y)
+\end{lstlisting}
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{What Next?}
+    \begin{itemize}
+        \item Many potential directions we can go:
+            \begin{itemize}
+                \item Church Encodings (we will talk about this briefly, could be a whole week though)
+                \item Featherweight Java
+                \item System $F_\omega$
+                \item Recursive types
+                \item Linear types
+                \item Calculus of inductive constructions (Coq); this will require some time
+                \item Type theory as foundations for mathematics; will require a lot of time
+                \item Pecan
+                \item Psamathe's Type System
+                \item Something other than type theory :)
+            \end{itemize}
+        \item What are you interested in?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings}
+    \begin{itemize}
+        \item We talked briefly about these before
+\begin{align*}
+    \texttt{True} & := (\lambda x. \lambda y. x) \\
+    \texttt{False} & := (\lambda x. \lambda y. y) \\
+    \texttt{And} & := (\lambda b_1. \lambda b_2. b_1~b_2~\texttt{False})
+\end{align*}
+        \item The basic idea about encoding some type $T$ is to think about how you use values of type $T$, then write a type that reflects that
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: (Recap) Booleans}
+    \begin{itemize}
+        \item Encoding \texttt{bool}: how do you use booleans? Mostly as conditions
+        \item Abstracting away various kinds of conditions (if statements, while loops, for loops, etc.), we just need if statements and recursion
+        \item So the way to use a boolean value \texttt{b} is basically:
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+if b then val1 else val2
+\end{lstlisting}
+        \item So if \texttt{b} is true, then we return \texttt{val1}, otherwise we return \texttt{val2}
+    \end{itemize}
+\begin{align*}
+    \texttt{True} & := (\lambda x. \lambda y. x) \\
+    \texttt{False} & := (\lambda x. \lambda y. y)
+\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Booleans in System $F$}
+    \begin{itemize}
+        \item Previously, we couldn't type these functions (because they take arguments of any types), now we can
+        \item We use the same type for both arguments so we know the return type statically
+    \end{itemize}
+\begin{align*}
+    \texttt{True} & : \forall \alpha. \alpha \to \alpha \to \alpha \\
+    \texttt{True} & := \Lambda \alpha. \lambda x : \alpha. \lambda y : \alpha. x \\
+    \texttt{False} & : \forall \alpha. \alpha \to \alpha \to \alpha \\
+    \texttt{False} & := \Lambda \alpha. \lambda x : \alpha. \lambda y : \alpha. y
+\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs}
+    \begin{itemize}
+        \item Before, we had to laboriously add new syntax and rules to add pairs
+        \item In System $F$, we don't need any of this!
+        \item How do you use a pair? Well, you use the two values inside the pair.
+        \item In Haskell:
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+mkPair :: a -> b -> (a -> b -> c) -> c
+mkPair a b = \f -> f a b
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs}
+    \begin{itemize}
+        \item In System $F$ (Do not be afraid):
+\begin{align*}
+    \texttt{mkPair} &: \forall \alpha. \forall \beta. \alpha \to \beta \to \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma \\
+    \texttt{mkPair} &= \Lambda \alpha. \Lambda \beta. \lambda a : \alpha. \lambda b : \beta. \Lambda \gamma. \lambda f : \alpha \to \beta \to \gamma. f~a~b
+\end{align*}
+        \item So
+\[
+    \alpha \times \beta := \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma
+\]
+        \item Using this abbreviation (which we can't formalize without higher-kinded types)
+\[
+    \texttt{mkPair} : \forall \alpha. \forall \beta. \alpha \to \beta \to \alpha \times \beta
+\]
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+mkPair :: a -> b -> (a -> b -> c) -> c
+mkPair a b = \f -> f a b
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Linear Typing}
+    \begin{itemize}
+        \item TODO?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Featherweight Java?}
+    \begin{itemize}
+        \item TODO?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Psamathe Type System}
+    \begin{itemize}
+        \item TODO?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Linear Typing}
+    \begin{itemize}
+        \item TODO?
+    \end{itemize}
+\end{frame}
+
+\end{document}
+
