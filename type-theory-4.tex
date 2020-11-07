@@ -527,7 +527,7 @@ new Pair(0, 1).setLeft(4).getLeft()
     \end{itemize}
 
 \Wider[4em]{
-    \footnotesize
+    \scriptsize
     \begin{mathpar}
         \inferrule*[right=T-Method]{
             \inferrule*[right=T-New]{
@@ -544,9 +544,84 @@ new Pair(0, 1).setLeft(4).getLeft()
 }
 \end{frame}
 
-\begin{frame}[fragile]{FGJ}
+\begin{frame}[fragile]{FJ: Simple Example Typechecking: \texttt{setLeft}}
     \begin{itemize}
-        \item TODO
+        \item Now, we check $\newc~\texttt{Pair}(0, 1).\texttt{setLeft}(4).\texttt{getLeft}() : \texttt{Object}$
+        \item We're going to pretend we have some \textsc{Int} rule that lets us have integer constants
+    \end{itemize}
+
+\Wider[4em]{
+    \scriptsize
+    \begin{mathpar}
+        \inferrule*[right=T-Invoke]{
+            \inferrule*[right=T-Invoke]{
+                \inferrule*[right=T-New]{
+                    \inferrule*[right=Int]{
+                    }{ \cdot \proves 0, 1 : \texttt{Object} }
+                }{ \cdot \proves \newc~\texttt{Pair}(0, 1) : \texttt{Pair} }
+                \\
+                \inferrule*[right=Int]{
+                }{ \cdot \proves 4 : \texttt{Object} }
+            }{ \cdot \proves \newc~\texttt{Pair}(0, 1).\texttt{setLeft}(4) : \texttt{Pair} }
+        }{ \cdot \proves \newc~\texttt{Pair}(0, 1).\texttt{setLeft}(4).\texttt{getLeft}() : \texttt{Object} }
+    \end{mathpar}
+}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Progress and Preservation}
+    \begin{itemize}
+        \item Progress and preservation are slightly more complicated to state in FJ than for System $F$ or the $\lambda$-calculus
+    \end{itemize}
+
+    \begin{theorem}[Subject Reduction\footnote{We would call this preservation}]
+        If $\Gamma \proves e : C$ and $e \to e'$, then $\Gamma \proves e : C'$ for some $C' <: C$.
+    \end{theorem}
+
+    \begin{theorem}[Progress]
+        Suppose $\Gamma \proves e : C$ for some closed $e$.
+        Then either $e = \newc~C(\overline{v}$, or $e$ is stuck at a downcast (i.e., it contains $(D)\newc~C(\overline{v})$ where $C \not<: D$).
+    \end{theorem}
+\end{frame}
+
+\begin{frame}[fragile]{Featherweight Generic Java}
+    \begin{itemize}
+        \item There's an extension of FJ to have generics (like Java does now), called FGJ
+        \item Our example program becomes:
+    \end{itemize}
+\begin{lstlisting}[language=java, basicstyle=\small\ttfamily]
+class Pair<L extends Object, R extends Object>
+    extends Object {
+  L left; R right;
+  T getLeft() { return this.left; }
+  R getRight() { return this.right; }
+  Pair<L,R> setLeft(T newLeft) {
+    return new Pair<L,R>(newLeft, this.right);
+  }
+  Pair<L,R> setRight(R newRight) {
+    return new Pair<L,R>(this.left, newRight)
+  }
+}
+new Pair<Int,Int>(0, 1).setLeft(4).getLeft() // : Int
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Next Steps}
+    \begin{itemize}
+        \item FGJ is considerably more complicated to explain than FJ
+        \item This leads me to ask about the topic for next meeting: after Dylan's presentation, so 12/6, I guess? Also will probably be the last meeting of the semester
+        \item So for possible topics we have:
+            \begin{itemize}
+                \item FGJ
+                \item Some other type theory topic:
+                    \begin{itemize}
+                        \item Recursive types
+                        \item Higher-kinded types (``type constructors'' like Haskell)
+                        \item Whatever else I think is cool
+                    \end{itemize}
+                \item Something not type theory: compilers, interpreters, program verification\footnote{not PL, per se, but I don't mind}, proof assistants
+            \end{itemize}
+        \item We'll continue meeting next semester, but potentially at a different time (or maybe not).
+            Also, I'll be graduating soon, so if someone is interested in taking over let me know (pls)
     \end{itemize}
 \end{frame}
 
