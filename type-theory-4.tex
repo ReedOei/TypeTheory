@@ -75,7 +75,6 @@
 \begin{frame}{Recap}
     \begin{itemize}
         \item Last time, we talked about System $F$ and Church Encodings
-        \item TODO: ADD MORE INTERACTION?
     \end{itemize}
 \end{frame}
 
@@ -167,17 +166,7 @@ mkPair a b = \f -> f a b
 
 \begin{frame}[fragile]{Church Encodings: Pairs (Examples)}
     \begin{itemize}
-        \item Programs using pairs:
-\begin{align*}
-    \texttt{fst} & : \forall \alpha. \forall \beta. \alpha \times \beta \to \alpha \\
-    \texttt{fst} & = ???
-\end{align*}
-    \end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Church Encodings: Pairs (Examples)}
-    \begin{itemize}
-        \item Some example programs; we'll do more later, but we can't write a ton of programs with \textbf{only} pairs.
+        \item Some example programs
 \begin{align*}
     \texttt{fst} & : \forall \alpha. \forall \beta. \alpha \times \beta \to \alpha \\
     \texttt{fst} & = \Lambda \alpha, \beta. \forall p : \alpha \times \beta. p[\alpha]~(\lambda x : \alpha, y : \beta. x) \\
@@ -228,14 +217,15 @@ foldr f init (x:xs) = f x (foldr f init xs)
 \end{frame}
 
 \begin{frame}[fragile]{Church Encodings: Lists Example}
+    \footnotesize
     \begin{align*}
-        & \texttt{sum}~(\texttt{cons}~[\N]~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))) \\
-        & (\texttt{cons}~[\N]~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N])))[\N]~(\lambda x, y : \N. x + y)~0 \\
-        & \to (\lambda x : \N. \lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~x~(xs[\beta]~f~y))~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
-        & \to (\lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~(xs[\beta]~f~y))~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
-        & \to (\Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\beta]~f~y))[\N]~(\lambda x, y : \N. x + y)~0 \\
-        & \to (\lambda y : \N . 1 + ((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~f~y))~0 \\
-        & \to 1 + ((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~f~0) \\
+        & \texttt{sum}~(\texttt{cons}[\N]~1~(\texttt{cons}[\N]~2~(\texttt{nil}[\N]))) \\
+        & (\texttt{cons}[\N]~1~(\texttt{cons}[\N]~2~(\texttt{nil}[\N])))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda x : \N. \lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~x~(xs[\beta]~f~y))~1~(\texttt{cons}[\N]~2~(\texttt{nil}[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~(xs[\beta]~f~y))~(\texttt{cons}[\N]~2~(\texttt{nil}[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~((\texttt{cons}[\N]~2~(\texttt{nil}[\N]))[\beta]~f~y))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda y : \N . 1 + ((\texttt{cons}[\N]~2~(\texttt{nil}[\N]))[\N]~f~y))~0 \\
+        & \to 1 + ((\texttt{cons}[\N]~2~(\texttt{nil}[\N]))[\N]~f~0) \\
         & \vdots \\
         & \to 1 + 2 + 0
     \end{align*}
@@ -243,6 +233,7 @@ foldr f init (x:xs) = f x (foldr f init xs)
 
 \begin{frame}{Featherweight Java}
     \begin{itemize}
+        \item And for something completely different
         \item Featherweight Java (FJ) is basically the smallest interesting subset of Java
         \item Important features: classes, methods, fields, \textbf{inheritance}
         \item But \textbf{no}: mutation, generics, built-ins (other than \texttt{Object}), access modifiers, interfaces, etc.
