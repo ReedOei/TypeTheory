@@ -1,0 +1,557 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{soul}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathpartir}
+\usepackage{xspace}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\tryS}{\textbf{\texttt{try}}\xspace}
+\newcommand{\Int}{\textbf{Int}\xspace}
+\newcommand{\ok}{\textbf{ok}\xspace}
+\newcommand{\catchS}{\textbf{\texttt{catch}}\xspace}
+
+\newcommand{\inl}{\textbf{\texttt{inl}}\xspace}
+\newcommand{\inr}{\textbf{\texttt{inr}}\xspace}
+\newcommand{\case}{\textbf{\texttt{case}}\xspace}
+
+\newcommand{\bool}{\textbf{Bool}}
+\newcommand{\fin}{\textbf{Fin}}
+\newcommand{\newc}{\texttt{new}}
+\newcommand{\class}{\texttt{class}}
+\newcommand{\extends}{\texttt{extends}}
+\newcommand{\this}{\texttt{this}}
+\newcommand{\fields}{\texttt{fields}}
+\newcommand{\method}{\texttt{method}}
+\newcommand{\return}{\texttt{return}}
+
+\newtheorem*{conjecture}{Conjecture}
+\newtheorem*{proposition}{Proposition}
+
+\title{SIGPLAN}
+\subtitle{Type Theory (part $4$ of $n$): Featherweight Java}
+\date{}
+
+\input{LaTeX/macros.tex}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Recap}
+    \begin{itemize}
+        \item Last time, we talked about System $F$ and Church Encodings
+        \item TODO: ADD MORE INTERACTION?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Recap: System $F$}
+    \begin{itemize}
+        \item Basically, simply-typed $\lambda$-calculus, but with \emph{parametric polymorphism}
+        \item Identity function in System $F$:
+        \begin{align*}
+            \text{id} &: \forall \alpha. \alpha \to \alpha \\
+            \text{id} &= (\Lambda \alpha. \lambda x : \alpha. x)
+        \end{align*}
+    \end{itemize}
+
+    \begin{tabular}{l r l l}
+        $\tau$ & \bnfdef & $\alpha$ \bnfalt $\tau \to \tau$ \bnfalt $\forall \alpha. \tau$ \\
+        E & \bnfdef & $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$ \bnfalt $\Lambda \alpha. E$ \bnfalt $E[\tau]$
+    \end{tabular}
+
+    \begin{mathpar}
+        \inferrule*[right=App-Ty]{
+        }{ (\Lambda \alpha. E)[\tau] \to E[\tau/\alpha] }
+    \end{mathpar}
+
+    \begin{mathpar}
+        \inferrule*[right=T-Abs]{
+            \Gamma, \alpha \proves E : \tau
+        }{ \Gamma \proves (\Lambda \alpha. E) : \forall \alpha. \tau }
+
+        \inferrule*[right=T-App]{
+            \Gamma \proves E : \forall \alpha. \sigma
+        }{ \Gamma \proves E[\tau] : \sigma[\tau / \alpha] }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{Recap: Church Encodings: Booleans}
+    \begin{itemize}
+        \item In the untyped $\lambda$-calculus
+            \begin{align*}
+                \texttt{True} & := (\lambda x. \lambda y. x) \\
+                \texttt{False} & := (\lambda x. \lambda y. y) \\
+                \texttt{And} & := (\lambda b_1. \lambda b_2. b_1~b_2~\texttt{False})
+            \end{align*}
+        \item In System $F$:
+            \begin{align*}
+                \texttt{True} & : \forall \alpha. \alpha \to \alpha \to \alpha \\
+                \texttt{True} & := \Lambda \alpha. \lambda x : \alpha. \lambda y : \alpha. x \\
+                \texttt{False} & : \forall \alpha. \alpha \to \alpha \to \alpha \\
+                \texttt{False} & := \Lambda \alpha. \lambda x : \alpha. \lambda y : \alpha. y \\
+                \texttt{And} & : \bool \to \bool \to \bool \\
+                \texttt{And} & := \lambda x : \bool. \lambda y: \bool. \Lambda \alpha. x[\bool]~y~\texttt{False}
+            \end{align*}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs}
+    \begin{itemize}
+        \item Before, we had to laboriously add new syntax and rules to add pairs
+        \item In System $F$, we don't need any of this!
+        \item How do you use a pair? Well, you use the two values inside the pair.
+        \item In Haskell:
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+mkPair :: a -> b -> (a -> b -> c) -> c
+mkPair a b = \f -> f a b
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs}
+    \begin{itemize}
+        \item In System $F$ (Do not be afraid):
+\begin{align*}
+    \texttt{mkPair} &: \forall \alpha. \forall \beta. \alpha \to \beta \to \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma \\
+    \texttt{mkPair} &= \Lambda \alpha. \Lambda \beta. \lambda a : \alpha. \lambda b : \beta. \Lambda \gamma. \lambda f : \alpha \to \beta \to \gamma. f~a~b
+\end{align*}
+        \item So
+\[
+    \alpha \times \beta := \forall \gamma. (\alpha \to \beta \to \gamma) \to \gamma
+\]
+        \item Using this abbreviation (which we can't formalize without higher-kinded types)
+\[
+    \texttt{mkPair} : \forall \alpha. \forall \beta. \alpha \to \beta \to \alpha \times \beta
+\]
+    \end{itemize}
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+mkPair :: a -> b -> (a -> b -> c) -> c
+mkPair a b = \f -> f a b
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs (Examples)}
+    \begin{itemize}
+        \item Programs using pairs:
+\begin{align*}
+    \texttt{fst} & : \forall \alpha. \forall \beta. \alpha \times \beta \to \alpha \\
+    \texttt{fst} & = ???
+\end{align*}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Pairs (Examples)}
+    \begin{itemize}
+        \item Some example programs; we'll do more later, but we can't write a ton of programs with \textbf{only} pairs.
+\begin{align*}
+    \texttt{fst} & : \forall \alpha. \forall \beta. \alpha \times \beta \to \alpha \\
+    \texttt{fst} & = \Lambda \alpha, \beta. \forall p : \alpha \times \beta. p[\alpha]~(\lambda x : \alpha, y : \beta. x) \\
+    \texttt{snd} & : \forall \alpha. \forall \beta. \alpha \times \beta \to \beta \\
+    \texttt{snd} & = \Lambda \alpha, \beta. \forall p : \alpha \times \beta. p[\beta]~(\lambda x : \alpha, y : \beta. y)
+\end{align*}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Church Encodings: Evaluating \texttt{fst}}
+\footnotesize
+\begin{align*}
+    &\texttt{fst}[\N][\bool]~(\texttt{mkPair}[\N][\bool]~4~\false) \\
+    & \to (\Lambda \alpha, \beta. \forall p : \alpha \times \beta. p[\alpha]~(\lambda x : \alpha, y : \beta. x))[\N][\bool]~(\texttt{mkPair}[\N][\bool]~4~\false) \\
+    & \to (\Lambda \beta. \forall p : \N \times \beta. p[\N]~(\lambda x : \N, y : \beta. x))[\bool]~(\texttt{mkPair}[\N][\bool]~4~\false) \\
+    & \to (\forall p : \N \times \bool. p[\N]~(\lambda x : \N, y : \bool. x))~(\texttt{mkPair}[\N][\bool]~4~\false) \\
+    & \to (\texttt{mkPair}[\N][\bool]~4~\false)[\N]~(\lambda x : \N, y : \bool. x) \\
+    & \to ((\Lambda \alpha, \beta. \lambda a : \alpha, b : \beta. \Lambda \gamma. \lambda f : \alpha \to \beta \to \gamma. f~a~b)[\N][\bool]~4~\false)[\N]~(\lambda x : \N, y : \bool. x) \\
+    & \to ((\lambda a : \N, b : \bool. \Lambda \gamma. \lambda f : \N \to \bool \to \gamma. f~a~b)~4~\false)[\N]~(\lambda x : \N, y : \bool. x) \\
+    & \to (\lambda f : \N \to \bool \to \N. f~4~\false)~(\lambda x : \N, y : \bool. x) \\
+    & \to (\lambda x : \N, y : \bool. x)~4~\false \\
+    & \to (\lambda y : \bool. 4)~\false \\
+    & \to 4 \\
+\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Lists}
+    \begin{itemize}
+        \item Before, we had to laboriously add new syntax and rules to add pairs
+        \item How do you use a list? Well, you iterate through the list and use every element (often called a \emph{fold})
+    \end{itemize}
+
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily]
+foldr f init [] = init
+foldr f init (x:xs) = f x (foldr f init xs)
+\end{lstlisting}
+
+    \small
+    \begin{align*}
+        \texttt{List}~\alpha & = \forall \beta. (\alpha \to \beta \to \beta) \to \beta \to \beta \\
+        \texttt{nil} & : \forall \alpha. \texttt{List}~\alpha \\
+        \texttt{nil} & = \Lambda \alpha. \Lambda \beta. \lambda f : \alpha \to \beta \to \beta. \lambda x : \beta . x \\
+        \texttt{cons} & : \forall \alpha. \alpha \to \texttt{List}~\alpha \to \texttt{List}~\alpha \\
+        \texttt{cons} & = \Lambda \alpha. \lambda x : \alpha. \lambda xs : \texttt{List}~\alpha . \Lambda \beta. \lambda f : \alpha \to \beta \to \beta . \lambda y : \beta . f~x~(xs[\beta]~f~y) \\
+        \texttt{sum} & : \texttt{List}~\N \to \N \\
+        \texttt{sum} & = \lambda xs : \texttt{List}~\N . xs[\N]~(\lambda x, y : \N. x + y)~0
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Church Encodings: Lists Example}
+    \begin{align*}
+        & \texttt{sum}~(\texttt{cons}~[\N]~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))) \\
+        & (\texttt{cons}~[\N]~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N])))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda x : \N. \lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~x~(xs[\beta]~f~y))~1~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda xs : \texttt{List}~\N . \Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~(xs[\beta]~f~y))~(\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\Lambda \beta. \lambda f : \N \to \beta \to \beta . \lambda y : \beta . f~1~((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\beta]~f~y))[\N]~(\lambda x, y : \N. x + y)~0 \\
+        & \to (\lambda y : \N . 1 + ((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~f~y))~0 \\
+        & \to 1 + ((\texttt{cons}~[\N]~2~(\texttt{nil}~[\N]))[\N]~f~0) \\
+        & \vdots \\
+        & \to 1 + 2 + 0
+    \end{align*}
+\end{frame}
+
+\begin{frame}{Featherweight Java}
+    \begin{itemize}
+        \item Featherweight Java (FJ) is basically the smallest interesting subset of Java
+        \item Important features: classes, methods, fields, \textbf{inheritance}
+        \item But \textbf{no}: mutation, generics, built-ins (other than \texttt{Object}), access modifiers, interfaces, etc.
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    \texttt{L} & \bnfdef & \texttt{class $C$ extends $C$ \{ $\overline{C~f}$; $\overline{M}$ \} } & (class def.) \\
+    \texttt{M} & \bnfdef & \texttt{$C$ m($\overline{C~x}$) \{ return $e$; \} } & (method def.) \\
+    \texttt{e} & \bnfdef & \texttt{$x$} \bnfalt \texttt{$e.f$} \bnfalt \texttt{$e.m(\overline{e})$} \bnfalt \texttt{new $C$($\overline{e}$)} \bnfalt \texttt{($C$)$e$} & (expressions) \\
+    \texttt{P} & \bnfdef & \texttt{$\overline{\texttt{L}}$; $e$} & (programs)
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{A Program in FJ}
+\begin{lstlisting}[language=java, basicstyle=\scriptsize\ttfamily]
+class If extends Object {
+  Object if(Object a, Object b) { return a; }
+}
+class IfFalse extends If {
+  Object if(Object a, Object b) { return b; }
+}
+class Integer extends Object {
+  // ...
+  Integer sub(Integer other) { return /* ... */; }
+  Integer mul(Integer other) { return /* ... */; }
+  If ifZero() { return /* ... */; }
+}
+class Main extends Object {
+  Integer fact(Integer x) {
+// Technically, must delay computation of the 2nd argument
+    return (Integer)x.isZero().if(1,x.mul(this.fact(x.sub(1))));
+  }
+};
+new Main().factorial(6) // == 720
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Big Ideas}
+    \begin{itemize}
+        \item Declarations: Programs in $\lambda$-calculus and System $F$ are expressions---FJ is more like real programming languages
+        \item Inheritance and Casting: We recover the ability to write any program with casts, but still have some type-safety because of inheritance
+        \item Type Soundness: More complicated, like in real languages
+        \item Things to note:
+            \begin{itemize}
+                \item In some sense, FJ is a ``re-skin'' of the $\lambda$-calculus
+                \item Everything is a sub-class of \texttt{Object} (like in real Java), which gets ``special treatment''
+                \item No statements: method bodies are expressions
+                \item We'll talk about languages with mutable environments soon\footnote{probably...if people are interested}, and you'll wish we hadn't
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Subtyping}
+    \begin{itemize}
+        \item We write $C <: D$ to mean ``$C$ is a subtype of $D$'' (in FJ, this is basically ``inherits from'')
+        \item Note that we treat declarations as judgements\footnote{We could have a separate environment, but that's only really useful when the environment can change.}
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=Sub-Refl]{
+    }{ C <: C }
+
+    \inferrule*[right=Sub-Trans]{
+        C <: D
+        \\
+        D <: E
+    }{ C <: E }
+
+    \inferrule*[right=Sub-Extends]{
+        \class~C~\extends~D~\{ \ldots \}
+    }{ C <: D }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Evaluation}
+    \begin{itemize}
+        \item In FJ, values are of the form $v \bnfdef \newc~C(\overline{v})$
+            \begin{itemize}
+                \item Constructors are essentially tuples
+                \item They don't get evaluated
+            \end{itemize}
+    \end{itemize}
+
+\begin{mathpar}
+\inferrule*[right=E-Field]{
+    \fields(C) = \overline{D~f}
+}{ (\newc~C(\overline{v})).f_i \to v_i }
+
+\inferrule*[right=E-Cast]{
+    C <: D
+}{ (D)(\newc~C(\overline{v})) \to \newc~C(\overline{v}) }
+
+\inferrule*[right=E-Method]{
+    \method(C, m) = D~m(\overline{A~x})~\{ \return~e; \}
+}{ (\newc~C(\overline{v})).m(\overline{w}) \to e[\overline{w}/\overline{x}, \newc~C(\overline{v})/\this]}
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: (Simple) Example Program}
+    \begin{itemize}
+        \item Below is a very simple program that we'll go through as an example of the evaluation process (and also typechecking later)
+        \item Note the casts on the last line
+    \end{itemize}
+
+\begin{lstlisting}[language=java, basicstyle=\small\ttfamily]
+class Pair extends Object {
+  Object left, right;
+  Object getLeft() { return this.left; }
+  Object getRight() { return this.right; }
+  Pair setLeft(Object newLeft) {
+    return new Pair(newLeft, this.right);
+  }
+  Pair setRight(Object newRight) {
+    return new Pair(this.left, newRight)
+  }
+}
+new Pair((Object)0, (Object)1).setLeft((Object)4).getLeft()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: (Simple) Example Program}
+    \begin{itemize}
+        \item Below is a very simple program that we'll go through as an example of the evaluation process (and also typechecking later)
+    \end{itemize}
+
+\begin{lstlisting}[language=java, basicstyle=\small\ttfamily]
+class Pair extends Object {
+  Object left, right;
+  Object getLeft() { return this.left; }
+  Object getRight() { return this.right; }
+  Pair setLeft(Object newLeft) {
+    return new Pair(newLeft, this.right);
+  }
+  Pair setRight(Object newRight) {
+    return new Pair(this.left, newRight)
+  }
+}
+new Pair(0, 1).setLeft(4).getLeft()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Simple Example Program Evaluation}
+    \begin{itemize}
+        \item Abbreviate version of the program we actually need
+    \end{itemize}
+\begin{lstlisting}[language=java, basicstyle=\small\ttfamily]
+class Pair extends Object {
+  Object getLeft() { return this.left; }
+  Pair setLeft(Object newLeft) {
+    return new Pair(newLeft, this.right);
+  }
+}
+new Pair(0, 1).setLeft(4).getLeft()
+\end{lstlisting}
+    \begin{align*}
+        & \newc~\texttt{Pair}(0, 1).\texttt{setLeft}(4).\texttt{getLeft}()  \\
+        & \to \newc~\texttt{Pair}(4, \newc~\texttt{Pair}(0,1).\texttt{right}).\texttt{getLeft}() \\
+        & \to \newc~\texttt{Pair}(4, 1).\texttt{getLeft}() \\
+        & \to \newc~\texttt{Pair}(4, 1).\texttt{left} \\
+        & \to 4
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Typechecking}
+    \begin{itemize}
+        \item Typechecking is pretty similar to previous systems we've seen
+        \item We still write $\Gamma \proves e : C$ to say that $e$ has type $C$ (some class) in the environment $\Gamma$
+        \item Variables are exactly the same as before; fields require looking up in the ambient environment
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=T-Var]{
+    }{ \Gamma, x : C \proves x : C }
+
+    \inferrule*[right=T-Field]{
+        \Gamma \proves e : C
+        \\
+        \fields(C) = \overline{D~f}
+    }{ \Gamma \proves e.f_i : D_i }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Typechecking (Invoke, New)}
+    \begin{itemize}
+        \item There rules are essentially the application and pair constructors for before, but for $n$-ary functions/$n$-tuples
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=T-Invoke]{
+        \Gamma \proves e : C
+        \\
+        \method(C, m) = D~m(\overline{A~x})~\{ \return~e_m; \}
+        \\
+        \Gamma \proves \overline{e' : A}
+    }{ \Gamma \proves e.m(\overline{e'}) : D }
+
+    \inferrule*[right=T-New]{
+        \fields(C) = \overline{D~f}
+        \\
+        \Gamma \proves \overline{e : D}
+    }{ \Gamma \proves \newc~C(\overline{e}) : C }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Typechecking (Casting)}
+    \begin{itemize}
+        \item This is a critical part of FJ, because it allows ``generic'' programs (\`a la pre-generics Java)
+        \item In addition to the standard up and down casts, there are also ``stupid casts'' (a technical necessity, due to how things evaluate)
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=T-UCast]{
+        \Gamma \proves e : D
+        \\
+        D <: C
+    }{ \Gamma \proves (C)e : C }
+
+    \inferrule*[right=T-DCast]{
+        \Gamma \proves e : D
+        \\
+        C <: D
+    }{ \Gamma \proves (C)e : C }
+
+    \inferrule*[right=T-SCast]{
+        \Gamma \proves e : D
+        \\
+        D \not<: C
+        \\
+        C \not<: D
+        \\
+        \text{stupid warning}
+    }{ \Gamma \proves (C)e : C }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Method Typing}
+    \begin{itemize}
+        \item We also need rules to check when a method is ``okay''
+        \item This boils down to checking:
+            \begin{itemize}
+                \item It's return expression evaluates to the right type
+                \item If the method appears in a superclass, it must override it properly (i.e., types match the overidden method)
+            \end{itemize}
+    \end{itemize}
+
+\begin{mathpar}
+    \inferrule*[right=T-Method]{
+        \overline{A~x}, \this : C \proves e : D
+        \\
+        \class~C~\extends~C'~\{ \ldots \}
+        \\
+        m \in C' \implies \method(C', m) = D~m(\overline{A~x})~\{\ldots\}
+    }{ D~m(\overline{A~x})~\{~\return~e;\}~\texttt{ok in}~C }
+\end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Simple Example Program}
+    \begin{itemize}
+        \item Recall the simple program from before; now we will typecheck it (partially)
+    \end{itemize}
+
+\begin{lstlisting}[language=java, basicstyle=\small\ttfamily]
+class Pair extends Object {
+  Object left, right;
+  Object getLeft() { return this.left; }
+  Object getRight() { return this.right; }
+  Pair setLeft(Object newLeft) {
+    return new Pair(newLeft, this.right);
+  }
+  Pair setRight(Object newRight) {
+    return new Pair(this.left, newRight)
+  }
+}
+new Pair(0, 1).setLeft(4).getLeft()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{FJ: Simple Example Typechecking: \texttt{setLeft}}
+    \begin{itemize}
+        \item First, we check \texttt{setLeft ok in Pair}
+        \item Let $\Gamma = \texttt{Object}~x, \this : \texttt{Pair}$
+    \end{itemize}
+
+\Wider[4em]{
+    \footnotesize
+    \begin{mathpar}
+        \inferrule*[right=T-Method]{
+            \inferrule*[right=T-New]{
+                \inferrule*[right=T-Var]{
+                }{ \Gamma \proves x : \texttt{Object } }
+                \\
+                \inferrule*[right=T-Field]{
+                    \inferrule*[right=T-Var]{
+                    }{ \Gamma \proves \this : \texttt{Pair}  }
+                }{ \Gamma \proves \texttt{this.r} : \texttt{Object} }
+            }{ \Gamma \proves \newc~\texttt{Pair}(x, \texttt{this.r}) : \texttt{Pair} }
+        }{ \texttt{Pair setL}(\texttt{Object}~x)~\{ \return~\newc~\texttt{Pair}(x, \texttt{this.r}); \}~\texttt{ok in Pair} }
+    \end{mathpar}
+}
+\end{frame}
+
+\begin{frame}[fragile]{FGJ}
+    \begin{itemize}
+        \item TODO
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Empty Slide for Scratch Work}
+\end{frame}
+
+\end{document}
+
