@@ -1,0 +1,421 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{soul}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathpartir}
+\usepackage{xspace}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\tryS}{\textbf{\texttt{try}}\xspace}
+\newcommand{\Int}{\textbf{Int}\xspace}
+\newcommand{\ok}{\textbf{ok}\xspace}
+\newcommand{\catchS}{\textbf{\texttt{catch}}\xspace}
+
+\newcommand{\inl}{\textbf{\texttt{inl}}\xspace}
+\newcommand{\inr}{\textbf{\texttt{inr}}\xspace}
+\newcommand{\case}{\textbf{\texttt{case}}\xspace}
+
+\newcommand{\bool}{\textbf{Bool}}
+\newcommand{\fin}{\textbf{Fin}}
+\newcommand{\newc}{\texttt{new}}
+\newcommand{\class}{\texttt{class}}
+\newcommand{\extends}{\texttt{extends}}
+\newcommand{\this}{\texttt{this}}
+\newcommand{\fields}{\texttt{fields}}
+\newcommand{\method}{\texttt{method}}
+\newcommand{\return}{\texttt{return}}
+\newcommand{\K}{\mathcal{K}}
+\newcommand{\Type}{\textbf{Type}}
+\newcommand{\highlight}[1]{{\color{deepOrange} \textbf{#1}}}
+
+\newtheorem*{conjecture}{Conjecture}
+\newtheorem*{proposition}{Proposition}
+
+\title{SIGPLAN}
+\subtitle{Type Theory (part $5$ of $n$): Higher-kinded types}
+\date{}
+
+\input{LaTeX/macros.tex}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Recap}
+    \begin{itemize}
+        \item Last time, we talked about Featherweight Java (not very important for this week)
+        \item Two times, ago we talked about System $F$---System $F_\omega$, is, naturally an extension of System $F$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Recall: Featherweight Java}
+    \begin{itemize}
+        \item Featherweight Java (FJ) is basically the smallest interesting subset of Java
+        \item Important features: classes, methods, fields, \textbf{inheritance}
+        \item But \textbf{no}: mutation, generics, built-ins (other than \texttt{Object}), access modifiers, interfaces, etc.
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    \texttt{L} & \bnfdef & \texttt{class $C$ extends $C$ \{ $\overline{C~f}$; $\overline{M}$ \} } & (class def.) \\
+    \texttt{M} & \bnfdef & \texttt{$C$ m($\overline{C~x}$) \{ return $e$; \} } & (method def.) \\
+    \texttt{e} & \bnfdef & \texttt{$x$} \bnfalt \texttt{$e.f$} \bnfalt \texttt{$e.m(\overline{e})$} \bnfalt \texttt{new $C$($\overline{e}$)} \bnfalt \texttt{($C$)$e$} & (expressions) \\
+    \texttt{P} & \bnfdef & \texttt{$\overline{\texttt{L}}$; $e$} & (programs)
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{Recall: System $F$}
+    \begin{itemize}
+        \item Recall, in System $F$ we extended the simply-typed $\lambda$-calculus with universal quantification over types
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\alpha$ \bnfalt $\tau \to \tau$ \bnfalt $\forall \alpha. \tau$ \\
+    E & \bnfdef & $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$ \bnfalt $\Lambda \alpha. E$ \bnfalt $E[\tau]$
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{And now: System $F_\omega$}
+    \begin{itemize}
+        \item Now we add \emph{kinds}, $\K$, which includes types\footnote{Sometimes written $*$, instead of \Type, but I think that's confusing.} and type constructors (or type operators)
+        \item Kinds $\approx$ ``types for types''
+        \item Having abstractions at the type level allows us to have type constructors in the language itself (think typeclasses from Haskell, or a more powerful version of interfaces/generics from Java)
+        \item System $F_\omega$ is deceptively simple, so we'll spend some time showing its power
+    \end{itemize}
+
+\begin{tabular}{l r l l}
+    \color{deepOrange}{$\K$} & \color{deepOrange}{\bnfdef} & \color{deepOrange}{$\Type$ \bnfalt $\K \Rightarrow \K$} \\
+    $\tau$ & \bnfdef & $\alpha$ \bnfalt $\tau \to \tau$ \bnfalt \color{deepOrange}{$\forall \alpha :: \K. \tau$ \bnfalt $\lambda \alpha :: \K. \tau$ \bnfalt $\tau~\tau$} \\
+    E & \bnfdef & $x$ \bnfalt $\lambda x : \tau. E$ \bnfalt $E~E$ \bnfalt $\Lambda \alpha {\color{deepOrange}{:: \K}}. E$ \bnfalt $E[\tau]$
+\end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Example: Optional}
+    \begin{itemize}
+        \item Below, we define/use a \texttt{Optional} type constructor
+        \item Note that we write $\lambda \alpha. \tau$ and $\forall \alpha. \tau$ instead of $\lambda \alpha :: \Type. \tau$ or $\forall \alpha :: \Type. \tau$
+        \item That is, $\texttt{Optional} :: \Type \Rightarrow \Type$
+    \end{itemize}
+    \footnotesize
+    \begin{align*}
+        \texttt{Optional} = &~\lambda \alpha. \forall \beta. (\alpha \to \beta) \to \beta \to \beta \\
+        \texttt{None} : &~ \forall \alpha. \texttt{Optional}~\alpha \\
+        \texttt{None} = &~ \Lambda \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. b \\
+        \texttt{Some} : &~ \forall \alpha. \alpha \to \texttt{Optional}~\alpha \\
+        \texttt{Some} = &~ \Lambda \alpha. \lambda a : \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. f~a \\
+        \texttt{map} : &~ \forall \alpha, \beta. (\alpha \to \beta) \to \texttt{Optional}~\alpha \to \texttt{Optional}~\beta \\
+        \texttt{map} = &~ \Lambda \alpha, \beta. \lambda f : (\alpha \to \beta). \lambda x : \texttt{Optional}~\alpha. x[\texttt{Optional}~\beta]~f~\texttt{None} \\
+        \texttt{isNone} : &~ \forall \alpha. \texttt{Optional}~\alpha \to \bool \\
+        \texttt{isNone} = &~ ???
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Example: Optional (Cont.)}
+    \small
+    \begin{align*}
+        \texttt{Optional} = &~\lambda \alpha. \forall \beta. (\alpha \to \beta) \to \beta \to \beta \\
+        \texttt{None} : &~ \forall \alpha. \texttt{Optional}~\alpha \\
+        \texttt{None} = &~ \Lambda \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. b \\
+        \texttt{Some} : &~ \forall \alpha. \alpha \to \texttt{Optional}~\alpha \\
+        \texttt{Some} = &~ \Lambda \alpha. \lambda a : \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. f~a \\
+        \texttt{map} : &~ \forall \alpha, \beta. (\alpha \to \beta) \to \texttt{Optional}~\alpha \to \texttt{Optional}~\beta \\
+        \texttt{map} = &~ \Lambda \alpha, \beta. \lambda f : (\alpha \to \beta). \lambda x : \texttt{Optional}~\alpha. x[\texttt{Optional}~\beta]~f~\texttt{None} \\
+        \texttt{isNone} : &~ \forall \alpha. \texttt{Optional}~\alpha \to \bool \\
+        \texttt{isNone} = &~ ???
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Example: Optional (Cont.)}
+    \small
+    \begin{align*}
+        \texttt{Optional} = &~\lambda \alpha. \forall \beta. (\alpha \to \beta) \to \beta \to \beta \\
+        \texttt{None} : &~ \forall \alpha. \texttt{Optional}~\alpha \\
+        \texttt{None} = &~ \Lambda \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. b \\
+        \texttt{Some} : &~ \forall \alpha. \alpha \to \texttt{Optional}~\alpha \\
+        \texttt{Some} = &~ \Lambda \alpha. \lambda a : \alpha. \Lambda \beta. \lambda f : \alpha \to \beta. \lambda b : \beta. f~a \\
+        \texttt{map} : &~ \forall \alpha, \beta. (\alpha \to \beta) \to \texttt{Optional}~\alpha \to \texttt{Optional}~\beta \\
+        \texttt{map} = &~ \Lambda \alpha, \beta. \lambda f : (\alpha \to \beta). \lambda x : \texttt{Optional}~\alpha. x[\texttt{Optional}~\beta]~f~\texttt{None} \\
+        \texttt{isNone} : &~ \forall \alpha. \texttt{Optional}~\alpha \to \bool \\
+        \texttt{isNone} = &~ \color{deepOrange}\Lambda \alpha. \lambda x : \alpha. x[\bool]~(\lambda y : \alpha. \false)~\true
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Evaluation}
+    \begin{itemize}
+        \item Evaluation is basically the same as before (the congruence rules also exist, but are omitted for space reasons)
+        \item We will introduce \emph{type equivalence} soon, which is important for evaluation (and type-checking)
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=E-App]{
+        }{ (\lambda x : \tau. E)~E' \to E[E'/x] }
+
+        \inferrule*[right=E-TApp]{
+        }{ (\Lambda \alpha :: \K. E)[\tau] \to E[\tau / \alpha] }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Type Equivalence}
+    \begin{itemize}
+        \item In addition to evaluate at the expression level, we can also evaluate at the type level now (i.e., type constructors)
+        \item We inductively define the equivalence relation $\equiv$\footnote{bad for actual implementations---there are better versions for that purpose that we won't discuss here.} to be the smallest equivalence relation satisfying the following rules:
+         % \item The most important rule is \textsc{Eq-App}, as it ``implements'' type constructors
+    \end{itemize}
+
+    \small
+    \begin{mathpar}
+        \inferrule*[right=Eq-App]{
+        }{ (\lambda \alpha :: \K. \tau)~\sigma \equiv \tau[\sigma / \alpha] }
+
+        \inferrule*[right=Eq-All]{
+            \tau \equiv \tau'
+        }{ \forall \alpha :: \K. \tau \equiv \forall \alpha :: \K. \tau' }
+
+        \inferrule*[right=Eq-Abs]{
+            \tau \equiv \tau'
+        }{ \lambda \alpha :: \K. \tau \equiv \lambda \alpha :: \K. \tau' }
+
+        \inferrule*[right=Eq-App]{
+            \tau \equiv \tau'
+            \\
+            \sigma \equiv \sigma'
+        }{ \tau~\sigma \equiv \tau'~\sigma' }
+
+        \inferrule*[right=Eq-Fun]{
+            \tau \equiv \tau'
+            \\
+            \sigma \equiv \sigma'
+        }{ \tau \to \sigma \equiv \tau' \to \sigma' }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Kind Rules}
+    \begin{itemize}
+        \item In addition to typechecking, we also need to ``kind-check'', or ``typecheck the types''
+        \item This ensures our type-level computations will not go awry
+        \item We extend type environments to be able to contain type variables and their kind (e.g., we can have $\alpha :: \Type \in \Gamma$)
+        \item First, the rules for type-level computations
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=K-Var]{
+        }{ \Gamma, \alpha :: \K \proves \alpha :: K }
+
+        \inferrule*[right=K-Abs]{
+            \Gamma, \alpha :: \K \proves \tau :: \K'
+        }{ \Gamma \proves (\lambda \alpha :: \K. \tau) :: \K \Rightarrow \K' }
+
+        \inferrule*[right=K-App]{
+            \Gamma \proves \tau :: \K \Rightarrow \K'
+            \\
+            \Gamma \proves \sigma :: \K
+        }{ \Gamma \proves \tau~\sigma :: \K' }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Kind Rules}
+    \begin{itemize}
+        \item Now, the rules for checking regular types
+        \item We basically need to make sure that certain things evaluate to expressions (but the previous rules control things that can evaluate to types)
+    \end{itemize}
+
+    \begin{mathpar}
+        \inferrule*[right=K-Fun]{
+            \Gamma \proves \tau :: \Type
+            \\
+            \Gamma \proves \sigma :: \Type
+        }{ \Gamma \proves (\tau \to \sigma) :: \Type }
+
+        \inferrule*[right=K-All]{
+            \Gamma, \alpha :: \K \proves \tau :: \Type
+        }{ \Gamma \proves (\forall \alpha :: \K. \tau) :: \Type }
+    \end{mathpar}
+\end{frame}
+
+\begin{frame}[fragile]{System $F_\omega$ Type Rules}
+    \begin{itemize}
+        \item The type rules are largely the same, with the caveat we now need to kind-check all the types
+        \item Note: no type constructors appear in these rules!
+    \end{itemize}
+
+    \small
+    \begin{mathpar}
+        \inferrule*[right=T-Abs]{
+            \Gamma \proves \tau :: \Type
+            \\
+            \Gamma, x : \tau \proves E : \sigma
+        }{ \Gamma \proves (\lambda x : \tau. E) : \tau \to \sigma }
+
+        \inferrule*[right=T-TAbs]{
+            \Gamma, \alpha :: \K \proves E : \tau
+        }{ \Gamma \proves (\Lambda \alpha :: \K. E) : \forall \alpha :: \K. \tau }
+
+        \inferrule*[right=T-TApp]{
+            \Gamma \proves E : \forall \alpha :: \K. \sigma
+            \\
+            \Gamma \proves \tau :: \K
+        }{ \Gamma \proves E~[\tau] : \sigma[\tau / \alpha] }
+
+        \inferrule*[right=T-Eq]{
+            \Gamma \proves E : \tau
+            \\
+            \tau \equiv \sigma
+            \\
+            \Gamma \proves \sigma :: \Type
+        }{ \Gamma \proves E : \sigma }
+    \end{mathpar}
+\end{frame}
+
+% \begin{frame}[fragile]{Typechecking \texttt{length}}
+%     \Wider{%
+%     \tiny
+%     Let $\Gamma = \{ c :: \Type \Rightarrow \Type, \alpha \}$.
+
+%     \begin{mathpar}
+%         \inferrule*{
+%             \inferrule*{
+%                 \inferrule*{
+%                     \inferrule*{
+%                     }{ \Gamma \proves \texttt{Container}~c~\alpha :: \Type }
+%                     \\
+%                     \inferrule*{
+%                     }{ \Gamma, xs : \texttt{Container}~c~\alpha \proves xs[\N]~(\lambda x : \alpha, y : \N. y + 1)~0 : \N }
+%                 }{ \Gamma \proves \lambda xs : \texttt{Container}~c~\alpha. xs[\N]~(\lambda x : \alpha, y : \N. y + 1)~0) : \texttt{Container}~c~\alpha \to \N }
+%             } { c :: \Type \Rightarrow \Type \proves (\Lambda \alpha. \lambda xs : \texttt{Container}~c~\alpha. xs[\N]~(\lambda x : \alpha, y : \N. y + 1)~0) : \forall \alpha. \texttt{Container}~c~\alpha \to \N }
+%         }{ \emptyset \proves \texttt{length} : \forall c :: \Type \Rightarrow \Type. \forall \alpha. \texttt{Container}~c~\alpha \to \N }
+%             % \texttt{length} = & \Lambda c :: \Type \Rightarrow \Type. \Lambda \alpha. \\
+%             %                   & \lambda xs : \texttt{Container}~c~\alpha. xs[\N]~(\lambda x : \alpha, y : \N. y + 1)~0
+%     \end{mathpar}}
+% \end{frame}
+
+\begin{frame}[fragile]{Another System $F_\omega$ Example: Foldable}
+    \begin{itemize}
+        \item Below, we define/use a \texttt{Foldable} type, for containers that can be ``summed''
+    \end{itemize}
+
+    \footnotesize
+    \begin{align*}
+        \texttt{Foldable} = & \lambda f :: \Type \Rightarrow \Type. \forall \alpha, \beta. (\alpha \to \beta \to \beta) \to \beta \to f~\alpha \to \beta \\
+        \texttt{length} : & \forall f :: \Type \Rightarrow \Type. \forall \alpha. \texttt{Foldable}~f~\alpha \to \N \\
+        \texttt{length} = & \Lambda f :: \Type \Rightarrow \Type. \Lambda \alpha. \\
+                          & \lambda xs : \texttt{Foldable}~f~\alpha. xs[\N]~(\lambda x : \alpha, y : \N. y + 1)~0
+    \end{align*}
+
+\begin{lstlisting}[language=haskell, basicstyle=\small\ttfamily, mathescape=true]
+length :: Foldable f => f a => Nat
+length xs = foldr (\a b -> b + 1) 0 xs
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Another System $F_\omega$ Example: Container}
+    \begin{itemize}
+        \item Here we have a container\footnote{This \texttt{Container} is actually a monad, but shhh...}
+        \item It has three functions:
+            \begin{itemize}
+                \item $\texttt{singleton} : \forall \alpha. \alpha \to c~\alpha$
+                \item $\texttt{flatten} : \forall \alpha. c~(c~\alpha) \to c~\alpha$
+                \item $\texttt{map} : \forall \alpha,\beta. (\alpha \to \beta) \to c~\alpha \to c~\beta) \times$
+            \end{itemize}
+    \end{itemize}
+    \footnotesize
+    \begin{align*}
+        \texttt{Container} = &~\lambda c :: \Type \Rightarrow \Type. \\
+                             &~\qquad(\forall \alpha. \alpha \to c~\alpha) \times (\forall \alpha. c~(c~\alpha) \to c~\alpha) \times \\
+                             &~\qquad(\forall \alpha,\beta. (\alpha \to \beta) \to c~\alpha \to c~\beta) \\
+        \texttt{flatMap} :&~ \forall c :: \Type \Rightarrow \Type. \forall \alpha, \beta. \\
+                          &~\qquad \texttt{Container}~c~\alpha \to c~\alpha \to (\alpha \to c~\beta) \to c~\beta \\
+        \texttt{flatMap} =&~ \Lambda c :: \Type \Rightarrow \Type. \Lambda \alpha, \beta. \\
+                          &~\qquad \lambda \texttt{impl} : \texttt{Container}~c~\alpha. \lambda xs : c~\alpha. \lambda f : \alpha \to c~\beta. \\
+                          &~\qquad \texttt{impl.flatten}[\alpha]~(\texttt{impl.map}[\alpha,c~\beta]~f~xs)
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Another System $F_\omega$ Example: Monad (Haskell Names)}
+    \begin{itemize}
+        \item Here we have a container\footnote{This \texttt{Container} is actually a monad, but shhh...}
+        \item It has three functions:
+            \begin{itemize}
+                \item $\highlight{pure} : \forall \alpha. \alpha \to c~\alpha$
+                \item $\highlight{join} : \forall \alpha. c~(c~\alpha) \to c~\alpha$
+                \item $\highlight{fmap} : \forall \alpha,\beta. (\alpha \to \beta) \to c~\alpha \to c~\beta) \times$
+            \end{itemize}
+    \end{itemize}
+    \footnotesize
+    \begin{align*}
+        \highlight{Monad} = &~\lambda c :: \Type \Rightarrow \Type. \\
+                             &~\qquad(\forall \alpha. \alpha \to c~\alpha) \times (\forall \alpha. c~(c~\alpha) \to c~\alpha) \times \\
+                             &~\qquad(\forall \alpha,\beta. (\alpha \to \beta) \to c~\alpha \to c~\beta) \\
+        (\highlight{$>>=$}) :&~ \forall c :: \Type \Rightarrow \Type. \forall \alpha, \beta. \\
+                          &~\qquad \texttt{Container}~c~\alpha \to c~\alpha \to (\alpha \to c~\beta) \to c~\beta \\
+        (\highlight{$>>=$}) =&~ \Lambda c :: \Type \Rightarrow \Type. \Lambda \alpha, \beta. \\
+                          &~\qquad \lambda \texttt{impl} : \texttt{Monad}~c~\alpha. \lambda xs : c~\alpha. \lambda f : \alpha \to c~\beta. \\
+                          &~\qquad \texttt{impl.join}[\alpha]~(\texttt{impl.fmap}[\alpha,c~\beta]~f~xs)
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Next Steps}
+    \begin{itemize}
+        \item We'll continue meeting next semester, but potentially at a different time (or maybe not).
+            Also, I'll be graduating soon, so if someone is interested in taking over let me know (pls)
+        \item Think about things you want to hear about for next semester
+        \item Possible topics we have:
+            \begin{itemize}
+                \item Some type theory topics:
+                    \begin{itemize}
+                        \item Dependent types (like in Coq, Agda)
+                        \item Pure type systems (unifies the various $\lambda$-calculi)
+                        \item Recursive types
+                        \item Bounded polymorphism
+                        \item Whatever else I think is cool
+                    \end{itemize}
+                \item Something not type theory: compilers, interpreters, program verification\footnote{not PL, per se, but I don't mind}, proof assistants
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Empty Slide for Scratch Work}
+\end{frame}
+
+\begin{frame}{Existentials}
+    \footnotesize
+    \begin{align*}
+        \texttt{EitherSig} = & \lambda \alpha,\beta. \forall \gamma. (\forall \texttt{Either} :: \Type \Rightarrow \Type \Rightarrow \Type. \\
+                             & \qquad (\texttt{Either}~\alpha~\beta \to \alpha) \to (\texttt{Either}~\alpha~\beta \to \beta) \to \gamma) \to \gamma \\
+    \end{align*}
+\end{frame}
+
+\end{document}
+
